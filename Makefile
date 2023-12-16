@@ -1,5 +1,5 @@
 PROG ?= iot-http
-DEFS ?= -liot
+DEFS ?= -liot-base -liot-json
 EXTRA_CFLAGS ?= -Wall -Werror
 CFLAGS += $(DEFS) $(EXTRA_CFLAGS)
 
