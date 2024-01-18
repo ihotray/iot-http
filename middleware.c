@@ -55,6 +55,11 @@ true: 拦截
 */
 bool cb_pre_hooks(struct rpc_call_context *ctx) {
     bool no_auth = false;
+    bool is_remote = true;
+    if ( ctx->c->rem.ip == 0x0100007f ) { // 本地调用
+        is_remote = false;
+    }
+
     struct http_private *priv = (struct http_private *)ctx->c->mgr->userdata;
 
     for (int i = 0; i < sizeof(s_middlewares)/sizeof(s_middlewares[0]); i++) {
@@ -63,7 +68,7 @@ bool cb_pre_hooks(struct rpc_call_context *ctx) {
             continue;
         }
 
-        if (!priv->cfg.opts->development_mode && !m->no_auth && !ctx->s) { // 未登陆
+        if (!priv->cfg.opts->devel_mode && is_remote && !m->no_auth && !ctx->s) { // 未登陆
             mg_http_reply(ctx->c, 401, IOT_SDK_HOST, "{\"code\": -10000}\n");
             return true;
         }
@@ -76,7 +81,7 @@ bool cb_pre_hooks(struct rpc_call_context *ctx) {
         }
     }
 
-    if (!priv->cfg.opts->development_mode && !no_auth && !ctx->s) {
+    if (!priv->cfg.opts->devel_mode && is_remote && !no_auth && !ctx->s) {
         mg_http_reply(ctx->c, 401, IOT_SDK_HOST, "{\"code\": -10000}\n");
         return true;
     }

@@ -18,7 +18,7 @@ struct http_option {
     const char *mqtt_serve_address;      //mqtt 服务端口
     int mqtt_keepalive;                  //mqtt 保活间隔
 
-    int development_mode; //开发模式，不用鉴权
+    int devel_mode; //开发模式，不用鉴权
     int debug_level;
 
 };

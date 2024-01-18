@@ -20,7 +20,7 @@ static void usage(const char *prog, struct http_option *default_opts) {
             "  -d DIR      - web file dir, default: '%s'\n"
             "  -D DIR      - upload file dir, default: '%s'\n"
             "  -s ADDR     - local mqtt server address, default: '%s'\n"
-            "  -a n        - local mqtt keepalive, default: '%d'\n"
+            "  -a n        - local mqtt keepalive, default: %d\n"
             "  -m prod|dev - running mode, default: '%s'\n"
             "  -v LEVEL    - debug level, from 0 to 4, default: %d\n",
             MG_VERSION, prog, opts->http_listening_address, opts->https_listening_address,
@@ -58,9 +58,9 @@ static void parse_args(int argc, char *argv[], struct http_option *opts) {
             }
         } else if (strcmp(argv[i], "-m") == 0) {
             char *running_mode = argv[++i];
-            opts->development_mode = 0;
+            opts->devel_mode = 0;
             if (strcmp(running_mode, "dev") == 0) {
-                opts->development_mode = 1;
+                opts->devel_mode = 1;
             }
         } else if (strcmp(argv[i], "-v") == 0) {
             opts->debug_level = atoi(argv[++i]);
@@ -88,16 +88,16 @@ int main(int argc, char *argv[]) {
         .mqtt_serve_address = MQTT_LISTEN_ADDR,
         .mqtt_keepalive = 6,
         .debug_level = MG_LL_INFO,
-        .development_mode  = 0
+        .devel_mode  = 0
     };
 
     parse_args(argc, argv, &opts);
 
-    MG_INFO(("IoT-SDK version        : v%s", MG_VERSION));
-    MG_INFO(("HTTP listening on      : %s", opts.http_listening_address));
+    MG_INFO(("IoT-SDK version         : v%s", MG_VERSION));
+    MG_INFO(("HTTP listening on       : %s", opts.http_listening_address));
     if (opts.https_enable)
-        MG_INFO(("HTTPS Listening on     : %s", opts.http_listening_address));
-    MG_INFO(("Development mode        : %d", opts.development_mode));
+        MG_INFO(("HTTPS Listening on      : %s", opts.http_listening_address));
+    MG_INFO(("Development mode        : %d", opts.devel_mode));
 
     http_main(&opts);
 
