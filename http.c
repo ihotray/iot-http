@@ -490,8 +490,8 @@ void http_exit(void *handle) {
 int http_main(void *user_options) {
 
     struct http_option *opts = (struct http_option *)user_options;
-	void *http_handle;
-	int ret;
+    void *http_handle;
+    int ret;
 
     ret = http_init(&http_handle, opts);
     if (ret)
