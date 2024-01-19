@@ -56,7 +56,10 @@ true: 拦截
 bool cb_pre_hooks(struct rpc_call_context *ctx) {
     bool no_auth = false;
     bool is_remote = true;
-    if ( ctx->c->rem.ip == 0x0100007f ) { // 本地调用
+    char ip[16] = {0};
+    mg_snprintf(ip, sizeof(ip)-1, "%M", mg_print_ip, &ctx->c->rem);
+
+    if ( !mg_casecmp(ip, "127.0.0.1") ) { //本地调用
         is_remote = false;
     }
 
