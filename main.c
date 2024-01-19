@@ -97,10 +97,10 @@ int main(int argc, char *argv[]) {
     parse_args(argc, argv, &opts);
 
     MG_INFO(("IoT-SDK version         : v%s", MG_VERSION));
-    if (opts.http_mode == 1 || opts.http_mode == 3)
+    if (opts.http_mode != 2)
         MG_INFO(("HTTP listening on       : %s", opts.http_listening_address));
     if (opts.http_mode > 1 )
-        MG_INFO(("HTTPS Listening on      : %s", opts.http_listening_address));
+        MG_INFO(("HTTPS Listening on      : %s", opts.https_listening_address));
     MG_INFO(("Development mode        : %d", opts.devel_mode));
 
     http_main(&opts);

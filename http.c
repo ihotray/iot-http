@@ -448,7 +448,7 @@ int http_init(void **priv, void *opts) {
 
     p->mgr.userdata = p;
 
-    if (p->cfg.opts->http_mode == 1 || p->cfg.opts->http_mode == 3) { //http
+    if (p->cfg.opts->http_mode != 2) { //http
         c = mg_http_listen(&p->mgr, p->cfg.opts->http_listening_address, http_cb, NULL);
         if (!c) {
             MG_ERROR(("Cannot listen on %s. Use http://ADDR:PORT or :PORT", p->cfg.opts->http_listening_address));
