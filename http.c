@@ -448,13 +448,15 @@ int http_init(void **priv, void *opts) {
 
     p->mgr.userdata = p;
 
-    c = mg_http_listen(&p->mgr, p->cfg.opts->http_listening_address, http_cb, NULL);
-    if (!c) {
-        MG_ERROR(("Cannot listen on %s. Use http://ADDR:PORT or :PORT", p->cfg.opts->http_listening_address));
-        goto out_err;
+    if (p->cfg.opts->http_mode == 1 || p->cfg.opts->http_mode == 3) { //http
+        c = mg_http_listen(&p->mgr, p->cfg.opts->http_listening_address, http_cb, NULL);
+        if (!c) {
+            MG_ERROR(("Cannot listen on %s. Use http://ADDR:PORT or :PORT", p->cfg.opts->http_listening_address));
+            goto out_err;
+        }
     }
 
-    if (p->cfg.opts->https_enable) { //enabel https
+    if (p->cfg.opts->http_mode > 1) { //https
         c = mg_http_listen(&p->mgr, p->cfg.opts->https_listening_address, https_cb, NULL);
         if (!c) {
             MG_ERROR(("Cannot listen on %s. Use https://ADDR:PORT or :PORT", p->cfg.opts->https_listening_address));

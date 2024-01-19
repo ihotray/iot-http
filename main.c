@@ -13,7 +13,7 @@ static void usage(const char *prog, struct http_option *default_opts) {
             "Usage: %s OPTIONS\n"
             "  -l ADDR     - http listening address, default: '%s'\n"
             "  -L ADDR     - https listening address, default: '%s'\n"
-            "  -e 0|1      - https enable, default: %d\n"
+            "  -e 1|2|3    - http server mode, 1: http, 2: https, 3: http+https, default: %d\n"
             "  -c CERT     - cert content or file path for https, default: '%s'\n"
             "  -k KEY      - key content or file path for https, default: '%s'\n"
             "  -t n        - http timeout, default: %d seconds\n"
@@ -24,7 +24,7 @@ static void usage(const char *prog, struct http_option *default_opts) {
             "  -m prod|dev - running mode, default: '%s'\n"
             "  -v LEVEL    - debug level, from 0 to 4, default: %d\n",
             MG_VERSION, prog, opts->http_listening_address, opts->https_listening_address,
-                        opts->https_enable, opts->https_cert, opts->https_certkey, opts->http_timeout, opts->http_serve_dir, opts->http_upload_dir,
+                        opts->http_mode, opts->https_cert, opts->https_certkey, opts->http_timeout, opts->http_serve_dir, opts->http_upload_dir,
                         opts->mqtt_serve_address, opts->mqtt_keepalive, "prod", opts->debug_level);
 
     exit(EXIT_FAILURE);
@@ -38,7 +38,10 @@ static void parse_args(int argc, char *argv[], struct http_option *opts) {
         } else if (strcmp(argv[i], "-L") == 0) {
             opts->https_listening_address = argv[++i];
         } else if (strcmp(argv[i], "-e") == 0) {
-            opts->https_enable = atoi(argv[++i]);
+            opts->http_mode = atoi(argv[++i]);
+            if (opts->http_mode < 1 || opts->http_mode > 3) {
+                opts->http_mode = 1;
+            }
         } else if (strcmp(argv[i], "-c") == 0) {
             opts->https_cert = argv[++i];
         } else if (strcmp(argv[i], "-k") == 0) {
@@ -83,7 +86,7 @@ int main(int argc, char *argv[]) {
         .http_upload_dir = "/tmp/upload",
 
         .http_timeout = 60,
-        .https_enable = 0,
+        .http_mode = 1,
 
         .mqtt_serve_address = MQTT_LISTEN_ADDR,
         .mqtt_keepalive = 6,
@@ -94,8 +97,9 @@ int main(int argc, char *argv[]) {
     parse_args(argc, argv, &opts);
 
     MG_INFO(("IoT-SDK version         : v%s", MG_VERSION));
-    MG_INFO(("HTTP listening on       : %s", opts.http_listening_address));
-    if (opts.https_enable)
+    if (opts.http_mode == 1 || opts.http_mode == 3)
+        MG_INFO(("HTTP listening on       : %s", opts.http_listening_address));
+    if (opts.http_mode > 1 )
         MG_INFO(("HTTPS Listening on      : %s", opts.http_listening_address));
     MG_INFO(("Development mode        : %d", opts.devel_mode));
 

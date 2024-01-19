@@ -13,7 +13,7 @@ struct http_option {
     const char *http_upload_dir;         //upload file store in
 
     int http_timeout;                    //http connection timeout
-    int https_enable;                    //是否开启https端口
+    int http_mode;                       //http mode, 1: http, 2: https, 3: http+https
 
     const char *mqtt_serve_address;      //mqtt 服务端口
     int mqtt_keepalive;                  //mqtt 保活间隔
