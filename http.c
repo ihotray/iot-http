@@ -408,10 +408,9 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data, void *fn_dat
 static void https_accept_cb(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
 
     struct http_private *priv = (struct http_private*)c->mgr->userdata;
-    struct mg_tls_opts opts = {
-        .cert = priv->cfg.opts->https_cert,     // Certificate PEM file
-        .certkey = priv->cfg.opts->https_certkey,
-    };
+    struct mg_tls_opts opts = { 0 };
+    opts.cert = priv->cfg.opts->https_cert;
+    opts.certkey = priv->cfg.opts->https_certkey;
     mg_tls_init(c, &opts);
 
 }

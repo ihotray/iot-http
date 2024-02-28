@@ -184,10 +184,13 @@ void timer_mqtt_fn(void *arg) {
     uint64_t now = mg_millis();
 
     if (priv->mqtt_conn == NULL) {
-        struct mg_mqtt_opts opts = {.clean = true,
-                                .qos = MQTT_QOS,
-                                .message = mg_str("goodbye"),
-                                .keepalive = priv->cfg.opts->mqtt_keepalive};
+        struct mg_mqtt_opts opts = { 0 };
+
+        opts.clean = true;
+        opts.qos = MQTT_QOS;
+        opts.message = mg_str("goodbye");
+        opts.keepalive = priv->cfg.opts->mqtt_keepalive;
+
         priv->mqtt_conn = mg_mqtt_connect(mgr, priv->cfg.opts->mqtt_serve_address, &opts, mqtt_cb, NULL);
         priv->ping_active = now;
         priv->pong_active = now;
