@@ -162,6 +162,7 @@ bool post_session_login(struct rpc_call_context *ctx) {
     MG_INFO(("token %.*s login", s->token.len, s->token.ptr));
 
     if ( cJSON_IsString(username) ) {
+        s->username = mg_strdup(mg_str(cJSON_GetStringValue(username)));
         for (struct challenge *c = priv->challenges; c != NULL; c = c->next ) {
             if (!mg_strcmp(c->username, mg_str(cJSON_GetStringValue(username)))) { //found exist nonce
                 MG_INFO(("delete nonce %.*s because of user %.*s logined", c->nonce.len, c->nonce.ptr, c->username.len, c->username.ptr));
@@ -202,6 +203,10 @@ bool pre_session_get(struct rpc_call_context *ctx) {
                 break;
             }
 
+            if (s->username.ptr) {
+                cJSON_AddItemToObject(ctx->root, FIELD_USERNAME, cJSON_CreateString(s->username.ptr));
+            }
+
             s->expire = now + s->timeout * 1000;
             ctx->s = s;
             
@@ -219,6 +224,8 @@ bool pre_session_logout(struct rpc_call_context *ctx) {
         LIST_DELETE(struct session, &priv->sessions, ctx->s);
         if (ctx->s->token.ptr)
             free((void*)ctx->s->token.ptr);
+        if (ctx->s->username.ptr)
+            free((void*)ctx->s->username.ptr);
         free(ctx->s);
         ctx->s = NULL;
     }
@@ -245,6 +252,8 @@ void timer_session_fn(void *arg) {
             LIST_DELETE(struct session, &priv->sessions, s);
             if (s->token.ptr)
                 free((void*)s->token.ptr);
+            if (s->username.ptr)
+                free((void*)s->username.ptr);
             free(s);
         }
     }

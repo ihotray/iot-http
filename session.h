@@ -17,6 +17,7 @@ struct session {
     uint64_t expire;
     uint64_t timeout;
     struct mg_str token;
+    struct mg_str username;
 };
 
 struct rpc_call_context;
