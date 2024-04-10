@@ -453,6 +453,16 @@ int http_init(void **priv, void *opts) {
             MG_ERROR(("Cannot listen on %s. Use http://ADDR:PORT or :PORT", p->cfg.opts->http_listening_address));
             goto out_err;
         }
+        if (c->loc.is_ip6) { //传入ipv6，还需要监听ipv4
+            unsigned short port = mg_url_port(p->cfg.opts->http_listening_address);
+            const char *address = mg_mprintf("http://0.0.0.0:%d", port);
+            c = mg_http_listen(&p->mgr, address, http_cb, NULL);
+            free((void*)address);
+            if (!c) {
+                MG_ERROR(("Cannot listen on %s. Use http://ADDR:PORT or :PORT", address));
+                goto out_err;
+            }
+        }
     }
 
     if (p->cfg.opts->http_mode > 1) { //https
@@ -460,6 +470,16 @@ int http_init(void **priv, void *opts) {
         if (!c) {
             MG_ERROR(("Cannot listen on %s. Use https://ADDR:PORT or :PORT", p->cfg.opts->https_listening_address));
             goto out_err;
+        }
+        if (c->loc.is_ip6) { //传入ipv6，还需要监听ipv4
+            unsigned short port = mg_url_port(p->cfg.opts->https_listening_address);
+            const char *address = mg_mprintf("https://0.0.0.0:%d", port);
+            c = mg_http_listen(&p->mgr, address, https_cb, NULL);
+            free((void*)address);
+            if (!c) {
+                MG_ERROR(("Cannot listen on %s. Use https://ADDR:PORT or :PORT", address));
+                goto out_err;
+            }
         }
     }
 
