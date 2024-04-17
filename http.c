@@ -161,7 +161,7 @@ static void http_api_handler(struct mg_connection *c, int ev, void *ev_data, voi
 
     // add remote client ip
     const char *ip = mg_mprintf("%M", mg_print_ip, &c->rem);
-    cJSON_AddItemToObject(ctx->root, FIELD_CLIENT, cJSON_CreateString(ip));
+    cJSON_AddItemToObject(root, FIELD_CLIENT, cJSON_CreateString(ip));
     free((void *)ip);
 
     struct rpc_call_context ctx = {
