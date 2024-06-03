@@ -75,7 +75,7 @@ static void http_ev_close_cb(struct mg_connection *c, int ev, void *ev_data, voi
 }
 
 static void http_alive_handler(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
-    mg_http_reply(c, 200, IOT_SDK_HOST, "true");
+    mg_http_reply(c, 200, HTTP_DEFAULT_HEADER, "true");
 }
 
 static void http_websocket_handler(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
@@ -107,7 +107,7 @@ static void http_serve_dir_handler(struct mg_connection *c, int ev, void *ev_dat
 
     struct http_private *priv = (struct http_private*)c->mgr->userdata;
     struct mg_http_serve_opts opts = {.root_dir = priv->cfg.opts->http_serve_dir,
-                                .extra_headers = "Cache-Control: no-cache, no-store, max-age=0\r\n"};
+                                .extra_headers = HTTP_DEFAULT_HEADER};
     mg_http_serve_dir(c, ev_data, &opts);
 
 }
@@ -129,14 +129,14 @@ static void http_api_handler(struct mg_connection *c, int ev, void *ev_data, voi
 
     if ( !cJSON_IsString(method) ) {
         MG_ERROR(("no method found"));
-        mg_http_reply(c, 200, IOT_SDK_HOST, "{\"code\": -10001}\n");
+        mg_http_reply(c, 200, HTTP_DEFAULT_HEADER, "{\"code\": -10001}\n");
         goto end;
     }
 
     //pub to iot-rpcd
     if (!priv->mqtt_conn) {
         MG_ERROR(("mqtt connection lost"));
-        mg_http_reply(c, 200, IOT_SDK_HOST, "{\"code\": -10002}\n");
+        mg_http_reply(c, 200, HTTP_DEFAULT_HEADER, "{\"code\": -10002}\n");
         goto end;
     }
 
@@ -225,7 +225,7 @@ static void http_ev_http_msg_cb(struct mg_connection *c, int ev, void *ev_data, 
     }
 
     //default
-    mg_http_reply(c, 404, IOT_SDK_HOST, "request not supported\n");
+    mg_http_reply(c, 404, HTTP_DEFAULT_HEADER, "request not supported\n");
 
 }
 
@@ -249,7 +249,7 @@ static void http_ev_http_chunk_cb(struct mg_connection *c, int ev, void *ev_data
     };
 
     if ( cb_pre_hooks(&ctx) ) { //登录授权检查
-        mg_http_reply(c, 401, IOT_SDK_HOST, "{\"code\": -10000}\n");
+        mg_http_reply(c, 401, HTTP_DEFAULT_HEADER, "{\"code\": -10000}\n");
         return;
     }
 
@@ -300,7 +300,7 @@ static void http_ev_http_chunk_cb(struct mg_connection *c, int ev, void *ev_data
             priv->fs->cl(s->fd);
             s->fd = NULL;
             s->filesize = 0;
-            mg_http_reply(c, 200, IOT_SDK_HOST, "{\"code\": 0, \"data\": {\"filepath\": \"%.*s\", \"md5\": \"%s\"}}\n", (int)s->filepath.len, s->filepath.ptr, md5sum);
+            mg_http_reply(c, 200, HTTP_DEFAULT_HEADER, "{\"code\": 0, \"data\": {\"filepath\": \"%.*s\", \"md5\": \"%s\"}}\n", (int)s->filepath.len, s->filepath.ptr, md5sum);
             free((void*)s->filepath.ptr);
             s->filepath.ptr = NULL;
             s->filepath.len = 0;

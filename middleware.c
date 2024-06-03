@@ -72,7 +72,7 @@ bool cb_pre_hooks(struct rpc_call_context *ctx) {
         }
 
         if (!priv->cfg.opts->devel_mode && is_remote && !m->no_auth && !ctx->s) { // 未登陆
-            mg_http_reply(ctx->c, 401, IOT_SDK_HOST, "{\"code\": -10000}\n");
+            mg_http_reply(ctx->c, 401, HTTP_DEFAULT_HEADER, "{\"code\": -10000}\n");
             return true;
         }
         if (m->no_auth && m->method[0] != '*' ) {
@@ -85,7 +85,7 @@ bool cb_pre_hooks(struct rpc_call_context *ctx) {
     }
 
     if (!priv->cfg.opts->devel_mode && is_remote && !no_auth && !ctx->s) {
-        mg_http_reply(ctx->c, 401, IOT_SDK_HOST, "{\"code\": -10000}\n");
+        mg_http_reply(ctx->c, 401, HTTP_DEFAULT_HEADER, "{\"code\": -10000}\n");
         return true;
     }
 

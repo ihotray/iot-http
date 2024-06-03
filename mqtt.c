@@ -136,7 +136,7 @@ cb_end:
     if (dst->is_websocket) {
         mg_ws_send(dst, mm->data.ptr, mm->data.len, WEBSOCKET_OP_TEXT);
     } else {
-        mg_http_reply(dst, 200, IOT_SDK_HOST, "%.*s", (int) mm->data.len, mm->data.ptr);
+        mg_http_reply(dst, 200, HTTP_DEFAULT_HEADER, "%.*s", (int) mm->data.len, mm->data.ptr);
     }
 
 end:

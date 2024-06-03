@@ -11,21 +11,21 @@ bool pre_session_challenge(struct rpc_call_context *ctx) {
 
     if (ctx->s) { //已登录用户
         MG_INFO(("token %.*s is logined", ctx->s->token.len, ctx->s->token.ptr));
-        mg_http_reply(ctx->c, 200, IOT_SDK_HOST, "{\"code\": -10003}\n");
+        mg_http_reply(ctx->c, 200, HTTP_DEFAULT_HEADER, "{\"code\": -10003}\n");
         return true;
     }
 
     cJSON *username = cJSON_GetObjectItem(cJSON_GetObjectItem(ctx->root, FIELD_PARAM), FIELD_USERNAME);
     if (!cJSON_IsString(username)) {
         MG_DEBUG(("username is null"));
-        mg_http_reply(ctx->c, 200, IOT_SDK_HOST, "{\"code\": -10001}\n");
+        mg_http_reply(ctx->c, 200, HTTP_DEFAULT_HEADER, "{\"code\": -10001}\n");
         return true;
     }
 
     for (struct challenge *c = priv->challenges; c != NULL; c = c->next) {
         if (!mg_strcmp(c->username, mg_str(cJSON_GetStringValue(username)))) { //found exist challenge
             MG_INFO(("nonce %.*s  user %.*s is exist", c->nonce.len, c->nonce.ptr, c->username.len, c->username.ptr));
-            mg_http_reply(ctx->c, 200, IOT_SDK_HOST, "{\"data\":{\"username\":\"%.*s\",\"nonce\":\"%.*s\"},\"method\":\"challenge\",\"code\":0}", c->username.len, c->username.ptr, c->nonce.len, c->nonce.ptr);
+            mg_http_reply(ctx->c, 200, HTTP_DEFAULT_HEADER, "{\"data\":{\"username\":\"%.*s\",\"nonce\":\"%.*s\"},\"method\":\"challenge\",\"code\":0}", c->username.len, c->username.ptr, c->nonce.len, c->nonce.ptr);
             return true;
         }
     }
@@ -51,7 +51,7 @@ bool post_session_challenge(struct rpc_call_context *ctx) {
     }
 
     if ( !cJSON_IsString(username) || !cJSON_IsString(nonce) ) {
-        mg_http_reply(ctx->c, 200, IOT_SDK_HOST, "{\"code\": -10004}\n");
+        mg_http_reply(ctx->c, 200, HTTP_DEFAULT_HEADER, "{\"code\": -10004}\n");
         MG_ERROR(("bad rpc challenge resp"));
         return true;
     }
@@ -71,7 +71,7 @@ bool post_session_challenge(struct rpc_call_context *ctx) {
     struct challenge *c = (struct challenge *) calloc(1, sizeof(struct challenge));
     if (!c) {
         MG_ERROR(("OOM"));
-        mg_http_reply(ctx->c, 200, IOT_SDK_HOST, "{\"code\": -10002}\n");
+        mg_http_reply(ctx->c, 200, HTTP_DEFAULT_HEADER, "{\"code\": -10002}\n");
         return true;
     }
 
@@ -96,7 +96,7 @@ bool pre_session_login(struct rpc_call_context *ctx) {
 
     if ( !cJSON_IsString(username) || !cJSON_IsString(password) ) {
         MG_INFO(("some param miss"));
-        mg_http_reply(ctx->c, 200, IOT_SDK_HOST, "{\"code\": -10003}\n");
+        mg_http_reply(ctx->c, 200, HTTP_DEFAULT_HEADER, "{\"code\": -10003}\n");
         return true;
     }
 
@@ -113,7 +113,7 @@ bool pre_session_login(struct rpc_call_context *ctx) {
     }
     if (!c || c->tries < 0) {
         MG_INFO(("no challenge found or try too many times"));
-        mg_http_reply(ctx->c, 200, IOT_SDK_HOST, "{\"code\": -10005}\n");
+        mg_http_reply(ctx->c, 200, HTTP_DEFAULT_HEADER, "{\"code\": -10005}\n");
         return true;
     }
 
@@ -137,7 +137,7 @@ bool post_session_login(struct rpc_call_context *ctx) {
     }
 
     if ( !cJSON_IsString(token) ) {
-        mg_http_reply(ctx->c, 200, IOT_SDK_HOST, "{\"code\": -10004}\n");
+        mg_http_reply(ctx->c, 200, HTTP_DEFAULT_HEADER, "{\"code\": -10004}\n");
         MG_ERROR(("bad rpc login resp"));
         return true;
     }
@@ -150,7 +150,7 @@ bool post_session_login(struct rpc_call_context *ctx) {
     struct session *s = (struct session *) calloc(1, sizeof(struct session));
     if (!s) {
         MG_ERROR(("OOM"));
-        mg_http_reply(ctx->c, 200, IOT_SDK_HOST, "{\"code\": -10002}\n");
+        mg_http_reply(ctx->c, 200, HTTP_DEFAULT_HEADER, "{\"code\": -10002}\n");
         return true;
     }
 
@@ -230,7 +230,7 @@ bool pre_session_logout(struct rpc_call_context *ctx) {
         ctx->s = NULL;
     }
 
-    mg_http_reply(ctx->c, 200, IOT_SDK_HOST, "{\"code\": 0}\n");
+    mg_http_reply(ctx->c, 200, HTTP_DEFAULT_HEADER, "{\"code\": 0}\n");
 
     return true;
 
