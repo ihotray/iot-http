@@ -22,6 +22,16 @@ bool pre_session_challenge(struct rpc_call_context *ctx) {
         return true;
     }
 
+#ifdef ONE_DEVICE_LOGGED_IN_LIMIT
+    for (struct session *s = priv->sessions; s != NULL; s = s->next) {
+        if (!mg_strcmp(s->username, mg_str(cJSON_GetStringValue(username))) ) {
+            MG_INFO(("user %.*s is logged in", s->username.len, s->username.ptr));
+            mg_http_reply(ctx->c, 200, HTTP_DEFAULT_HEADER, "{\"code\": -10006}\n");
+            return true;
+        }
+    }
+#endif
+
     for (struct challenge *c = priv->challenges; c != NULL; c = c->next) {
         if (!mg_strcmp(c->username, mg_str(cJSON_GetStringValue(username)))) { //found exist challenge
             MG_INFO(("nonce %.*s  user %.*s is exist", c->nonce.len, c->nonce.ptr, c->username.len, c->username.ptr));
