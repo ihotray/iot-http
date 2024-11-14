@@ -22,7 +22,7 @@ bool pre_session_challenge(struct rpc_call_context *ctx) {
         return true;
     }
 
-#ifdef ONE_DEVICE_LOGGED_IN_LIMIT
+#if (defined(ONE_DEVICE_LOGIN_LIMIT) && !defined(ONE_DEVICE_LOGIN_LIMIT_WITH_REPLACING))
     for (struct session *s = priv->sessions; s != NULL; s = s->next) {
         if (!mg_strcmp(s->username, mg_str(cJSON_GetStringValue(username))) ) {
             MG_INFO(("user %.*s is logged in", s->username.len, s->username.ptr));
@@ -156,6 +156,22 @@ bool post_session_login(struct rpc_call_context *ctx) {
             (int)cJSON_GetNumberValue(timeout) < MAX_TOKEN_TIMEOUT ) {
         n_timeout = (int)cJSON_GetNumberValue(timeout);
     }
+
+#if (defined(ONE_DEVICE_LOGIN_LIMIT) && defined(ONE_DEVICE_LOGIN_LIMIT_WITH_REPLACING))
+    for (struct session *s = priv->sessions; s != NULL; s = s->next) {
+        if ( cJSON_IsString(username) && !mg_strcmp(s->username, mg_str(cJSON_GetStringValue(username))) ) {
+            MG_INFO(("user %.*s is logged in", s->username.len, s->username.ptr));
+            MG_INFO(("session token %.*s replaced because of dumplicate login limit", s->token.len, s->token.ptr));
+            LIST_DELETE(struct session, &priv->sessions, s);
+            if (s->token.ptr)
+                free((void*)s->token.ptr);
+            if (s->username.ptr)
+                free((void*)s->username.ptr);
+            free(s);
+            break;
+        }
+    }
+#endif
 
     struct session *s = (struct session *) calloc(1, sizeof(struct session));
     if (!s) {
