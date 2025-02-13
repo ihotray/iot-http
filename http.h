@@ -3,7 +3,7 @@
 
 #include <iot/mongoose.h>
 
-#define HTTP_DEFAULT_HEADER "Host: iot-web\r\nCache-Control: no-cache, no-store, max-age=0\r\nX-Frame-Options: SAMEORIGIN\r\n"
+#define HTTP_DEFAULT_HEADER "Host: iot-web\r\nCache-Control: no-cache, no-store, max-age=0\r\nX-Frame-Options: SAMEORIGIN\r\nContent-Type: application/json\r\n"
 
 struct http_option {
     const char *http_listening_address;  //http 监听端口
