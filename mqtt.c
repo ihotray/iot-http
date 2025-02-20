@@ -116,8 +116,18 @@ static void mqtt_ev_mqtt_msg_cb(struct mg_connection *c, int ev, void *ev_data, 
         goto end;
     }
 
+    cJSON *plugin = cJSON_GetObjectItem(root, "plugin");
+    if ( cJSON_IsString(plugin) ) {//response from plugin
+        cJSON *code = cJSON_GetObjectItem(root, "code");
+        cJSON *header = cJSON_GetObjectItem(root, "header");
+        cJSON *body = cJSON_GetObjectItem(root, "body");
+
+        mg_http_reply(dst, cJSON_IsNumber(code) ? cJSON_GetNumberValue(code) : 200, cJSON_IsString(header) ? cJSON_GetStringValue(header) : HTTP_DEFAULT_HEADER, cJSON_IsString(body) ? cJSON_GetStringValue(body) : "");
+        goto end;
+    }
+
     if ( !cJSON_IsString(method) ) {
-        MG_ERROR(("no method field found"));
+        MG_DEBUG(("no method field found"));
         goto cb_end;
     }
 

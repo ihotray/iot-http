@@ -18,13 +18,14 @@ static void usage(const char *prog, struct http_option *default_opts) {
             "  -k KEY      - key content or file path for https, default: '%s'\n"
             "  -t n        - http timeout, default: %d seconds\n"
             "  -d DIR      - web file dir, default: '%s'\n"
+            "  -p DIR      - plugin dir, default: '%s'\n"
             "  -D DIR      - upload file dir, default: '%s'\n"
             "  -s ADDR     - local mqtt server address, default: '%s'\n"
             "  -a n        - local mqtt keepalive, default: %d\n"
             "  -m prod|dev - running mode, default: '%s'\n"
             "  -v LEVEL    - debug level, from 0 to 4, default: %d\n",
             MG_VERSION, prog, opts->http_listening_address, opts->https_listening_address,
-                        opts->http_mode, opts->https_cert, opts->https_certkey, opts->http_timeout, opts->http_serve_dir, opts->http_upload_dir,
+                        opts->http_mode, opts->https_cert, opts->https_certkey, opts->http_timeout, opts->http_serve_dir, opts->http_plugin_dir, opts->http_upload_dir,
                         opts->mqtt_serve_address, opts->mqtt_keepalive, "prod", opts->debug_level);
 
     exit(EXIT_FAILURE);
@@ -50,6 +51,8 @@ static void parse_args(int argc, char *argv[], struct http_option *opts) {
             opts->http_timeout = atoi(argv[++i]);
         } else if (strcmp(argv[i], "-d") == 0) {
             opts->http_serve_dir = argv[++i];
+        } else if (strcmp(argv[i], "-p") == 0) {
+            opts->http_plugin_dir = argv[++i];
         } else if (strcmp(argv[i], "-D") == 0) {
             opts->http_upload_dir = argv[++i];
         } else if (strcmp(argv[i], "-s") == 0) {
@@ -83,6 +86,7 @@ int main(int argc, char *argv[]) {
         .https_cert = CERT,
         .https_certkey = KEY,
         .http_serve_dir = "/www/iot/web_root",
+        .http_plugin_dir = "/usr/share/iot/rpc/plugin/",
         .http_upload_dir = "/tmp/upload",
 
         .http_timeout = 60,

@@ -3,6 +3,7 @@
 #include "http.h"
 #include "session.h"
 #include "middleware.h"
+#include "plugin.h"
 
 
 static int s_signo;
@@ -209,6 +210,11 @@ static void http_ev_http_msg_cb(struct mg_connection *c, int ev, void *ev_data, 
     //websocket
     if ( mg_http_match_uri(hm, "/websocket") || mg_http_match_uri(hm, "/device/#/websocket") ) {
         http_websocket_handler(c, ev, ev_data, fn_data);
+        return;
+    }
+
+    //handled by plugin
+    if ( http_plugin_handler(c, ev, ev_data, fn_data) ) {
         return;
     }
 
@@ -426,7 +432,6 @@ static void https_cb(struct mg_connection *c, int ev, void *ev_data, void *fn_da
         https_accept_cb(c, ev, ev_data, fn_data);
 
     http_cb(c, ev, ev_data, fn_data);
-
 }
 
 int http_init(void **priv, void *opts) {
@@ -449,6 +454,9 @@ int http_init(void **priv, void *opts) {
     p->fs = &mg_fs_posix;
 
     mg_mgr_init(&p->mgr);
+
+    //load plugins
+    http_plugin_load(p);
 
     p->mgr.userdata = p;
 
@@ -507,6 +515,10 @@ void http_run(void *handle) {
 
 void http_exit(void *handle) {
     struct http_private *priv = (struct http_private *)handle;
+
+    // free plugins
+    http_plugin_free(handle);
+
     mg_mgr_free(&priv->mgr);
     free(handle);
 }
