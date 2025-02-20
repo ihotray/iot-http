@@ -37,6 +37,8 @@ plugin/
     "/api/your/path1",
     "/api/your/path2"
 ]
+
+* 路径支持通配符#，如/api/your/path#
 ```
 
 ### 2. 处理程序 (handler.lua)

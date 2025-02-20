@@ -17,10 +17,14 @@ static void load_plugin(const char *name, void *handle) {
     }
 
     MG_INFO(("find plugin: %s", name));
+    size_t file_size = 0;
+    priv->fs->st(path, &file_size, NULL);
+    size_t align_file_size = ((file_size + 1) / 64 + 1) * 64; //align 64 bytes
+    MG_INFO(("open plugin file: %s, size: %d(%d)", path, file_size, align_file_size));
     void *fp = priv->fs->op(path, MG_FS_READ);
     if (fp) {
-        char *buf = calloc(512, 1024); //512K buff
-        size_t size = priv->fs->rd(fp, buf, 1024*512-1);
+        char *buf = calloc(1, align_file_size);
+        size_t size = priv->fs->rd(fp, buf, align_file_size - 1);
         cJSON *root = cJSON_ParseWithLength(buf, size);
         if (root && cJSON_IsArray(root)) {
             struct http_plugin *plugin = calloc(1, sizeof(struct http_plugin));
