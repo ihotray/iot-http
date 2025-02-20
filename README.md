@@ -59,6 +59,8 @@ function M.handler(args)
     -- body: 请求体内容
     -- query: URL 查询参数数组
     -- header: HTTP 头部数组
+    -- client: 客户端IP
+    -- logined: 是否通过了/api接口登录（携带对应的access_token时）
     
     return cjson.encode({
         plugin = plugin_name,
@@ -109,10 +111,14 @@ handler收到的请求数据示例：
             "Content-Length": "20"
         }
     ],
+    "logined": false,
+    "client": "10.5.2.30",
     "uri": "/api/system/user_login_nonce",
     "body": "post data, post data"
 }
 ```
+
+登录校验：可以使用/api接口的登录结果（即logined字段），也可以自建登录校验逻辑。
 
 ## 插件响应格式
 

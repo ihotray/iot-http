@@ -1,8 +1,9 @@
 #include <iot/mongoose.h>
 #include <iot/cJSON.h>
 #include <iot/iot.h>
-
 #include "http.h"
+#include "session.h"
+#include "middleware.h"
 
 
 static void load_plugin(const char *name, void *handle) {
@@ -90,7 +91,25 @@ static void call_handler(struct mg_str plugin, struct mg_connection *c, int ev, 
     root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, FIELD_METHOD, "call");
 
+    struct rpc_call_context ctx = {
+        c, NULL, NULL, ev_data, NULL
+    };
+    pre_session_get(&ctx); //get session by /api login token
+
     cJSON *args = cJSON_CreateObject();
+    if (ctx.s) {
+        cJSON_AddItemToObject(args, "logined", cJSON_CreateBool(true));
+        if (ctx.s->username.ptr) {
+            cJSON_AddItemToObject(args, FIELD_USERNAME, cJSON_CreateString(ctx.s->username.ptr));
+        }
+    } else {
+        cJSON_AddItemToObject(args, "logined", cJSON_CreateBool(false));
+    }
+
+    char ip[16] = {0};
+    mg_snprintf(ip, sizeof(ip)-1, "%M", mg_print_ip, c->rem);
+    cJSON_AddItemToObject(args, "client", cJSON_CreateString(ip));
+
     char *value = mg_mprintf("%.*s",hm->method.len, hm->method.ptr);
     cJSON_AddStringToObject(args, "method", value);
     free(value);
