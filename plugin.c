@@ -111,7 +111,7 @@ static void call_handler(struct mg_str plugin, struct mg_connection *c, int ev, 
     }
 
     char ip[16] = {0};
-    mg_snprintf(ip, sizeof(ip)-1, "%M", mg_print_ip, c->rem);
+    mg_snprintf(ip, sizeof(ip)-1, "%M", mg_print_ip, &c->rem);
     cJSON_AddItemToObject(args, "client", cJSON_CreateString(ip));
 
     char *value = mg_mprintf("%.*s",hm->method.len, hm->method.ptr);
