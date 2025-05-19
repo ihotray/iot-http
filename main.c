@@ -22,6 +22,7 @@ static void usage(const char *prog, struct http_option *default_opts) {
             "  -s ADDR     - local mqtt server address, default: '%s'\n"
             "  -a n        - local mqtt keepalive, default: %d\n"
             "  -m prod|dev - running mode, default: '%s'\n"
+            "  -n 404page  - 404 page path, default: NULL\n"
             "  -v LEVEL    - debug level, from 0 to 4, default: %d\n",
             MG_VERSION, prog, opts->http_listening_address, opts->https_listening_address,
                         opts->http_mode, opts->https_cert, opts->https_certkey, opts->http_timeout, opts->http_serve_dir, opts->http_upload_dir,
@@ -65,6 +66,8 @@ static void parse_args(int argc, char *argv[], struct http_option *opts) {
             if (strcmp(running_mode, "dev") == 0) {
                 opts->devel_mode = 1;
             }
+        } else if (strcmp(argv[i], "-n") == 0) {
+            opts->http_404_page = argv[++i];
         } else if (strcmp(argv[i], "-v") == 0) {
             opts->debug_level = atoi(argv[++i]);
         } else {

@@ -14,6 +14,8 @@ struct http_option {
     const char *http_serve_dir;          //http serve dir, static resource
     const char *http_upload_dir;         //upload file store in
 
+    const char *http_404_page;         //http 404 page
+
     int http_timeout;                    //http connection timeout
     int http_mode;                       //http mode, 1: http, 2: https, 3: http+https
 

@@ -106,8 +106,11 @@ static void http_websocket_handler(struct mg_connection *c, int ev, void *ev_dat
 static void http_serve_dir_handler(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
 
     struct http_private *priv = (struct http_private*)c->mgr->userdata;
-    struct mg_http_serve_opts opts = {.root_dir = priv->cfg.opts->http_serve_dir,
-                                .extra_headers = HTTP_DEFAULT_HEADER};
+    struct mg_http_serve_opts opts = { 0 };
+    opts.root_dir = priv->cfg.opts->http_serve_dir;
+    opts.extra_headers = HTTP_DEFAULT_HEADER;
+    opts.page404 = priv->cfg.opts->http_404_page;
+    opts.fs = priv->fs;
     mg_http_serve_dir(c, ev_data, &opts);
 
 }
