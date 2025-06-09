@@ -3,6 +3,7 @@
 #include "http.h"
 #include "session.h"
 #include "middleware.h"
+#include "plugin.h"
 
 
 static int s_signo;
@@ -230,6 +231,11 @@ static void http_ev_http_msg_cb(struct mg_connection *c, int ev, void *ev_data, 
         return;
     }
 
+    //handled by plugin
+    if ( http_plugin_handler(c, ev, ev_data, fn_data) ) {
+        return;
+    }
+
     //not post, as serve files
     if ( mg_ncasecmp(hm->method.ptr, "POST", hm->method.len) ) {
         http_serve_dir_handler(c, ev, ev_data, fn_data);
@@ -444,7 +450,6 @@ static void https_cb(struct mg_connection *c, int ev, void *ev_data, void *fn_da
         https_accept_cb(c, ev, ev_data, fn_data);
 
     http_cb(c, ev, ev_data, fn_data);
-
 }
 
 void timer_http_fn(void *arg) {
@@ -520,6 +525,9 @@ int http_init(void **priv, void *opts) {
 
     mg_mgr_init(&p->mgr);
 
+    //load plugins
+    http_plugin_load(p);
+
     p->mgr.userdata = p;
 
     mg_timer_add(&p->mgr, 1000, timer_opts, timer_mqtt_fn, &p->mgr);
@@ -539,6 +547,10 @@ void http_run(void *handle) {
 
 void http_exit(void *handle) {
     struct http_private *priv = (struct http_private *)handle;
+
+    // free plugins
+    http_plugin_free(handle);
+
     mg_mgr_free(&priv->mgr);
     free(handle);
 }

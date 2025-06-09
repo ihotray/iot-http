@@ -12,6 +12,7 @@ struct http_option {
     const char *https_cert;              //https cert
     const char *https_certkey;           //https certkey
     const char *http_serve_dir;          //http serve dir, static resource
+    const char *http_plugin_dir;         //http plugin dir
     const char *http_upload_dir;         //upload file store in
 
     const char *http_404_page;         //http 404 page
@@ -40,8 +41,16 @@ struct http_session {
     int filesize;
 };
 
+
+struct http_plugin {
+    struct http_plugin *next;
+    struct mg_str name;
+    void *routes;
+};
+
 struct http_private {
     struct http_config cfg;
+    struct http_plugin *http_plugins;
 
     struct mg_mgr mgr;
     struct mg_fs *fs;
