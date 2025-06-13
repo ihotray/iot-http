@@ -296,13 +296,13 @@ static void http_ev_http_chunk_cb(struct mg_connection *c, int ev, void *ev_data
         priv->fs->rm(filepath);
         //创建新文件
         s->fd = priv->fs->op(filepath, MG_FS_WRITE);
-        mg_md5_init(&s->md5_ctx);
+        mg_sha256_init(&s->sha256_ctx);
     }
 
     //write data
     if (s->fd && hm->chunk.len) {
         priv->fs->wr(s->fd, hm->chunk.ptr, hm->chunk.len);
-        mg_md5_update(&s->md5_ctx, (const unsigned char *)hm->chunk.ptr, hm->chunk.len);
+        mg_sha256_update(&s->sha256_ctx, (const unsigned char *)hm->chunk.ptr, hm->chunk.len);
         s->filesize += hm->chunk.len;
     }
 
@@ -312,19 +312,19 @@ static void http_ev_http_chunk_cb(struct mg_connection *c, int ev, void *ev_data
     if (hm->chunk.len == 0) {
 
         MG_DEBUG(("last chunk received, sending resp"));
-        unsigned char md5[16] = {0};
-        char md5sum[33] = {0};
+        unsigned char sha256_digest[32] = {0};
+        char sha256sum[sizeof(sha256_digest)*2+1] = {0};
         if (s->filesize) {
-            mg_md5_final(&s->md5_ctx, md5);
-            for (int i=0; i<sizeof(md5); i++) {
-                mg_snprintf(&md5sum[i*2], 3, "%02x", md5[i]);
+            mg_sha256_final(sha256_digest, &s->sha256_ctx);
+            for (int i=0; i<sizeof(sha256_digest); i++) {
+                mg_snprintf(&sha256sum[i*2], 3, "%02x", sha256_digest[i]);
             }
         }
         if (s->fd) {
             priv->fs->cl(s->fd);
             s->fd = NULL;
             s->filesize = 0;
-            mg_http_reply(c, 200, HTTP_DEFAULT_HEADER, "{\"code\": 0, \"data\": {\"filepath\": \"%.*s\", \"md5\": \"%s\"}}\n", (int)s->filepath.len, s->filepath.ptr, md5sum);
+            mg_http_reply(c, 200, HTTP_DEFAULT_HEADER, "{\"code\": 0, \"data\": {\"filepath\": \"%.*s\", \"sha256sum\": \"%s\"}}\n", (int)s->filepath.len, s->filepath.ptr, sha256sum);
             free((void*)s->filepath.ptr);
             s->filepath.ptr = NULL;
             s->filepath.len = 0;

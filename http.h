@@ -34,7 +34,7 @@ struct http_config {
 
 struct http_session {
     uint64_t active;
-    mg_md5_ctx md5_ctx;
+    mg_sha256_ctx sha256_ctx;
     struct mg_str filepath;
     struct mg_str ws_uri;
     void *fd;
