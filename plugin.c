@@ -10,10 +10,10 @@ static void load_plugin(const char *name, void *handle) {
     struct http_private *priv = (struct http_private *)handle;
     struct mg_str dir = mg_str(priv->cfg.opts->http_plugin_dir);
     char *path = NULL;
-    if (dir.len > 0 && dir.ptr[dir.len-1] == '/') {
-        path = mg_mprintf("%.*s%s/routes.json", (int)dir.len, dir.ptr, name);
+    if (dir.len > 0 && dir.buf[dir.len-1] == '/') {
+        path = mg_mprintf("%.*s%s/routes.json", (int)dir.len, dir.buf, name);
     } else {
-        path = mg_mprintf("%.*s/%s/routes.json", (int)dir.len, dir.ptr, name);
+        path = mg_mprintf("%.*s/%s/routes.json", (int)dir.len, dir.buf, name);
     }
 
     MG_INFO(("find plugin: %s", name));
@@ -60,8 +60,8 @@ void http_plugin_free(void *handle) {
     for (struct http_plugin *next, *p = priv->http_plugins; p != NULL; p = next) {
         next = p->next;
         LIST_DELETE(struct http_plugin, &priv->http_plugins, p);
-        if (p->name.ptr)
-            free((void*)p->name.ptr);
+        if (p->name.buf)
+            free((void*)p->name.buf);
         cJSON_Delete(p->routes);
         free(p);
     }
@@ -83,7 +83,7 @@ static void call_handler(struct mg_str plugin, struct mg_connection *c, int ev, 
     cJSON *root = NULL;
 
     struct mg_http_message *hm = (struct mg_http_message *)ev_data;
-    MG_DEBUG(("match plugin %.*s's uri: %.*s", plugin.len, plugin.ptr, hm->uri.len, hm->uri.ptr));
+    MG_DEBUG(("match plugin %.*s's uri: %.*s", plugin.len, plugin.buf, hm->uri.len, hm->uri.buf));
 
     if (!priv->mqtt_conn) {
         MG_ERROR(("mqtt connection lost"));
@@ -103,8 +103,8 @@ static void call_handler(struct mg_str plugin, struct mg_connection *c, int ev, 
     cJSON *args = cJSON_CreateObject();
     if (ctx.s) {
         cJSON_AddItemToObject(args, "logined", cJSON_CreateBool(true));
-        if (ctx.s->username.ptr) {
-            cJSON_AddItemToObject(args, FIELD_USERNAME, cJSON_CreateString(ctx.s->username.ptr));
+        if (ctx.s->username.buf) {
+            cJSON_AddItemToObject(args, FIELD_USERNAME, cJSON_CreateString(ctx.s->username.buf));
         }
     } else {
         cJSON_AddItemToObject(args, "logined", cJSON_CreateBool(false));
@@ -114,24 +114,26 @@ static void call_handler(struct mg_str plugin, struct mg_connection *c, int ev, 
     mg_snprintf(ip, sizeof(ip)-1, "%M", mg_print_ip, &c->rem);
     cJSON_AddItemToObject(args, "client", cJSON_CreateString(ip));
 
-    char *value = mg_mprintf("%.*s",hm->method.len, hm->method.ptr);
+    char *value = mg_mprintf("%.*s",hm->method.len, hm->method.buf);
     cJSON_AddStringToObject(args, "method", value);
     free(value);
-    value = mg_mprintf("%.*s",hm->uri.len, hm->uri.ptr);
+    value = mg_mprintf("%.*s",hm->uri.len, hm->uri.buf);
     cJSON_AddStringToObject(args, "uri", value);
     free(value);
-    value = mg_mprintf("%.*s",hm->body.len, hm->body.ptr);
+    value = mg_mprintf("%.*s",hm->body.len, hm->body.buf);
     cJSON_AddStringToObject(args, "body", value);
     free(value);
 
 
     //add query
     cJSON *querys = cJSON_CreateArray();
-    struct mg_str k, v;
-    while (mg_split(&hm->query, &k, &v, '&')) {
-        if (k.len > 0) {
-            char *key = mg_mprintf("%.*s", k.len, k.ptr);
-            char *val = mg_mprintf("%.*s", v.len, v.ptr);
+    struct mg_str s = hm->query;
+    struct mg_str entry, k, v = mg_str(NULL);
+    while (mg_span(s, &entry, &s, '&')) {
+        mg_span(entry, &k, &v, '=');
+        if (k.len > 0 && v.len > 0 ) {
+            char *key = mg_mprintf("%.*s", k.len, k.buf);
+            char *val = mg_mprintf("%.*s", v.len, v.buf);
             cJSON *query = cJSON_CreateObject();
             cJSON_AddStringToObject(query, key, val);
             cJSON_AddItemToArray(querys, query);
@@ -145,8 +147,8 @@ static void call_handler(struct mg_str plugin, struct mg_connection *c, int ev, 
     cJSON *headers = cJSON_CreateArray();
     for (int i = 0; i < sizeof(hm->headers) / sizeof(hm->headers[0]) && hm->headers[i].name.len > 0; i++) {
         struct mg_str *k = &hm->headers[i].name, *v = &hm->headers[i].value;
-        char *key = mg_mprintf("%.*s", k->len, k->ptr);
-        char *val = mg_mprintf("%.*s", v->len, v->ptr);
+        char *key = mg_mprintf("%.*s", k->len, k->buf);
+        char *val = mg_mprintf("%.*s", v->len, v->buf);
         cJSON *header = cJSON_CreateObject();
         cJSON_AddStringToObject(header, key, val);
         cJSON_AddItemToArray(headers, header);
@@ -156,7 +158,7 @@ static void call_handler(struct mg_str plugin, struct mg_connection *c, int ev, 
     cJSON_AddItemToObject(args, "header", headers);
 
     cJSON *param = cJSON_CreateArray();
-    char *handler = mg_mprintf("plugin/%.*s/handler", plugin.len, plugin.ptr);
+    char *handler = mg_mprintf("plugin/%.*s/handler", plugin.len, plugin.buf);
     cJSON_AddItemToArray(param, cJSON_CreateString(handler));
     free(handler);
     cJSON_AddItemToArray(param, cJSON_CreateString("handler"));
@@ -164,7 +166,7 @@ static void call_handler(struct mg_str plugin, struct mg_connection *c, int ev, 
     cJSON_AddItemToObject(root, FIELD_PARAM, param);
 
     char *printed = cJSON_Print(root);
-    MG_DEBUG(("pub %s -> %.*s", printed, (int) pub_topic.len, pub_topic.ptr));
+    MG_DEBUG(("pub %s -> %.*s", printed, (int) pub_topic.len, pub_topic.buf));
 
     struct mg_mqtt_opts pub_opts;
     memset(&pub_opts, 0, sizeof(pub_opts));
@@ -179,8 +181,8 @@ end:
     if (root)
         cJSON_Delete(root);
 
-    if (pub_topic.ptr)
-        free((void*)pub_topic.ptr);
+    if (pub_topic.buf)
+        free((void*)pub_topic.buf);
 }
 
 bool http_plugin_handler(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
@@ -193,7 +195,7 @@ bool http_plugin_handler(struct mg_connection *c, int ev, void *ev_data, void *f
             cJSON *routes = (cJSON *)plugin->routes;
             cJSON *route = NULL;
             cJSON_ArrayForEach(route, routes) {
-                if (cJSON_IsString(route) && mg_http_match_uri(hm, cJSON_GetStringValue(route))) { //matched route, handle by plugin
+                if (cJSON_IsString(route) && mg_strcasecmp(hm->uri, mg_str(cJSON_GetStringValue(route))) == 0 ) { //matched route, handle by plugin
                     call_handler(plugin->name, c, ev, ev_data, fn_data);
                     return true;
                 }

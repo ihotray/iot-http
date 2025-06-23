@@ -10,7 +10,7 @@ bool pre_session_challenge(struct rpc_call_context *ctx) {
     struct http_private *priv = (struct http_private*)ctx->c->mgr->userdata;
 
     if (ctx->s) { //已登录用户
-        MG_INFO(("token %.*s is logined", ctx->s->token.len, ctx->s->token.ptr));
+        MG_INFO(("token %.*s is logined", ctx->s->token.len, ctx->s->token.buf));
         mg_http_reply(ctx->c, 200, HTTP_DEFAULT_HEADER, "{\"code\": -10003}\n");
         return true;
     }
@@ -25,7 +25,7 @@ bool pre_session_challenge(struct rpc_call_context *ctx) {
 #if (defined(ONE_DEVICE_LOGIN_LIMIT) && !defined(ONE_DEVICE_LOGIN_LIMIT_WITH_REPLACING))
     for (struct session *s = priv->sessions; s != NULL; s = s->next) {
         if (!mg_strcmp(s->username, mg_str(cJSON_GetStringValue(username))) ) {
-            MG_INFO(("user %.*s is logged in", s->username.len, s->username.ptr));
+            MG_INFO(("user %.*s is logged in", s->username.len, s->username.buf));
             mg_http_reply(ctx->c, 200, HTTP_DEFAULT_HEADER, "{\"code\": -10006}\n");
             return true;
         }
@@ -34,8 +34,8 @@ bool pre_session_challenge(struct rpc_call_context *ctx) {
 
     for (struct challenge *c = priv->challenges; c != NULL; c = c->next) {
         if (!mg_strcmp(c->username, mg_str(cJSON_GetStringValue(username)))) { //found exist challenge
-            MG_INFO(("nonce %.*s  user %.*s is exist", c->nonce.len, c->nonce.ptr, c->username.len, c->username.ptr));
-            mg_http_reply(ctx->c, 200, HTTP_DEFAULT_HEADER, "{\"data\":{\"username\":\"%.*s\",\"nonce\":\"%.*s\"},\"method\":\"challenge\",\"code\":0}", c->username.len, c->username.ptr, c->nonce.len, c->nonce.ptr);
+            MG_INFO(("nonce %.*s  user %.*s is exist", c->nonce.len, c->nonce.buf, c->username.len, c->username.buf));
+            mg_http_reply(ctx->c, 200, HTTP_DEFAULT_HEADER, "{\"data\":{\"username\":\"%.*s\",\"nonce\":\"%.*s\"},\"method\":\"challenge\",\"code\":0}", c->username.len, c->username.buf, c->nonce.len, c->nonce.buf);
             return true;
         }
     }
@@ -91,7 +91,7 @@ bool post_session_challenge(struct rpc_call_context *ctx) {
     c->nonce = mg_strdup(mg_str(cJSON_GetStringValue(nonce)));
 
     LIST_ADD_TAIL(struct challenge, &priv->challenges, c);
-    MG_INFO(("nonce %.*s challenge", c->nonce.len, c->nonce.ptr));
+    MG_INFO(("nonce %.*s challenge", c->nonce.len, c->nonce.buf));
 
 end:
     return false;
@@ -113,10 +113,10 @@ bool pre_session_login(struct rpc_call_context *ctx) {
     struct challenge *c;
     for (c = priv->challenges; c != NULL; c = c->next) {
         if (!mg_strcmp(c->username, mg_str(cJSON_GetStringValue(username)))) { //found exist nonce
-            char *nonce = mg_mprintf("%.*s", c->nonce.len, c->nonce.ptr);
+            char *nonce = mg_mprintf("%.*s", c->nonce.len, c->nonce.buf);
             cJSON_AddItemToObject(cJSON_GetObjectItem(ctx->root, FIELD_PARAM), FIELD_NONCE, cJSON_CreateString(nonce));
             free(nonce);
-            MG_INFO(("nonce %.*s of user %.*s is exist", c->nonce.len, c->nonce.ptr, c->username.len, c->username.ptr));
+            MG_INFO(("nonce %.*s of user %.*s is exist", c->nonce.len, c->nonce.buf, c->username.len, c->username.buf));
             c->tries--;
             break;
         }
@@ -160,13 +160,13 @@ bool post_session_login(struct rpc_call_context *ctx) {
 #if (defined(ONE_DEVICE_LOGIN_LIMIT) && defined(ONE_DEVICE_LOGIN_LIMIT_WITH_REPLACING))
     for (struct session *s = priv->sessions; s != NULL; s = s->next) {
         if ( cJSON_IsString(username) && !mg_strcmp(s->username, mg_str(cJSON_GetStringValue(username))) ) {
-            MG_INFO(("user %.*s is logged in", s->username.len, s->username.ptr));
-            MG_INFO(("session token %.*s replaced because of dumplicate login limit", s->token.len, s->token.ptr));
+            MG_INFO(("user %.*s is logged in", s->username.len, s->username.buf));
+            MG_INFO(("session token %.*s replaced because of dumplicate login limit", s->token.len, s->token.buf));
             LIST_DELETE(struct session, &priv->sessions, s);
-            if (s->token.ptr)
-                free((void*)s->token.ptr);
-            if (s->username.ptr)
-                free((void*)s->username.ptr);
+            if (s->token.buf)
+                free((void*)s->token.buf);
+            if (s->username.buf)
+                free((void*)s->username.buf);
             free(s);
             break;
         }
@@ -185,18 +185,18 @@ bool post_session_login(struct rpc_call_context *ctx) {
     s->token = mg_strdup(mg_str(cJSON_GetStringValue(token)));
     LIST_ADD_HEAD(struct session, &priv->sessions, s);
 
-    MG_INFO(("token %.*s login", s->token.len, s->token.ptr));
+    MG_INFO(("token %.*s login", s->token.len, s->token.buf));
 
     if ( cJSON_IsString(username) ) {
         s->username = mg_strdup(mg_str(cJSON_GetStringValue(username)));
         for (struct challenge *c = priv->challenges; c != NULL; c = c->next ) {
             if (!mg_strcmp(c->username, mg_str(cJSON_GetStringValue(username)))) { //found exist nonce
-                MG_INFO(("delete nonce %.*s because of user %.*s logined", c->nonce.len, c->nonce.ptr, c->username.len, c->username.ptr));
+                MG_INFO(("delete nonce %.*s because of user %.*s logined", c->nonce.len, c->nonce.buf, c->username.len, c->username.buf));
                 LIST_DELETE(struct challenge, &priv->challenges, c);
-                if (c->username.ptr)
-                    free((void*)c->username.ptr);
-                if (c->nonce.ptr)
-                    free((void*)c->nonce.ptr);
+                if (c->username.buf)
+                    free((void*)c->username.buf);
+                if (c->nonce.buf)
+                    free((void*)c->nonce.buf);
                 free(c);
                 break;
             }
@@ -229,8 +229,8 @@ bool pre_session_get(struct rpc_call_context *ctx) {
                 break;
             }
 
-            if (s->username.ptr) {
-                cJSON_AddItemToObject(ctx->root, FIELD_USERNAME, cJSON_CreateString(s->username.ptr));
+            if (s->username.buf) {
+                cJSON_AddItemToObject(ctx->root, FIELD_USERNAME, cJSON_CreateString(s->username.buf));
             }
 
             s->expire = now + s->timeout * 1000;
@@ -246,12 +246,12 @@ bool pre_session_get(struct rpc_call_context *ctx) {
 bool pre_session_logout(struct rpc_call_context *ctx) {
     struct http_private *priv = (struct http_private*)ctx->c->mgr->userdata;
     if (ctx->s) {
-        MG_INFO(("token %.*s logout", ctx->s->token.len, ctx->s->token.ptr));
+        MG_INFO(("token %.*s logout", ctx->s->token.len, ctx->s->token.buf));
         LIST_DELETE(struct session, &priv->sessions, ctx->s);
-        if (ctx->s->token.ptr)
-            free((void*)ctx->s->token.ptr);
-        if (ctx->s->username.ptr)
-            free((void*)ctx->s->username.ptr);
+        if (ctx->s->token.buf)
+            free((void*)ctx->s->token.buf);
+        if (ctx->s->username.buf)
+            free((void*)ctx->s->username.buf);
         free(ctx->s);
         ctx->s = NULL;
     }
@@ -274,12 +274,12 @@ void timer_session_fn(void *arg) {
         next = s->next;
 
         if (now > s->expire) { //timeout
-            MG_INFO(("session token %.*s timeout: %llu-%llu=%llu", s->token.len, s->token.ptr, now, s->expire, now - s->expire));
+            MG_INFO(("session token %.*s timeout: %llu-%llu=%llu", s->token.len, s->token.buf, now, s->expire, now - s->expire));
             LIST_DELETE(struct session, &priv->sessions, s);
-            if (s->token.ptr)
-                free((void*)s->token.ptr);
-            if (s->username.ptr)
-                free((void*)s->username.ptr);
+            if (s->token.buf)
+                free((void*)s->token.buf);
+            if (s->username.buf)
+                free((void*)s->username.buf);
             free(s);
         }
     }
@@ -289,12 +289,12 @@ void timer_session_fn(void *arg) {
         next = c->next;
 
         if (now > c->expire) {
-            MG_INFO(("nonce %.*s of user %.*s timeout: %llu-%llu=%llu", c->nonce.len, c->nonce.ptr, c->username.len, c->username.ptr, now, c->expire, now - c->expire));
+            MG_INFO(("nonce %.*s of user %.*s timeout: %llu-%llu=%llu", c->nonce.len, c->nonce.buf, c->username.len, c->username.buf, now, c->expire, now - c->expire));
             LIST_DELETE(struct challenge, &priv->challenges, c);
-            if (c->username.ptr)
-                free((void*)c->username.ptr);
-            if (c->nonce.ptr)
-                free((void*)c->nonce.ptr);
+            if (c->username.buf)
+                free((void*)c->username.buf);
+            if (c->nonce.buf)
+                free((void*)c->nonce.buf);
             free(c);
         }
 

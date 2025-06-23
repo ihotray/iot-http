@@ -6,16 +6,16 @@
 #include "http.h"
 
 
-static void mqtt_ev_open_cb(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
+static void mqtt_ev_open_cb(struct mg_connection *c, int ev, void *ev_data) {
     MG_INFO(("mqtt client connection created"));
 }
 
-static void mqtt_ev_error_cb(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
+static void mqtt_ev_error_cb(struct mg_connection *c, int ev, void *ev_data) {
     MG_ERROR(("%p %s", c->fd, (char *) ev_data));
     c->is_closing = 1;
 }
 
-static void mqtt_ev_poll_cb(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
+static void mqtt_ev_poll_cb(struct mg_connection *c, int ev, void *ev_data) {
 
     struct http_private *priv = (struct http_private*)c->mgr->userdata;
     if (!priv->cfg.opts->mqtt_keepalive) //no keepalive
@@ -31,7 +31,7 @@ static void mqtt_ev_poll_cb(struct mg_connection *c, int ev, void *ev_data, void
 
 }
 
-static void mqtt_ev_close_cb(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
+static void mqtt_ev_close_cb(struct mg_connection *c, int ev, void *ev_data) {
 
     struct http_private *priv = (struct http_private*)c->mgr->userdata;
     MG_INFO(("mqtt client connection closed"));
@@ -39,7 +39,7 @@ static void mqtt_ev_close_cb(struct mg_connection *c, int ev, void *ev_data, voi
 
 }
 
-static void mqtt_ev_mqtt_open_cb(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
+static void mqtt_ev_mqtt_open_cb(struct mg_connection *c, int ev, void *ev_data) {
 
     struct mg_str subt_resp_rpcd = mg_str(IOT_HTTP_TOPIC);
     struct mg_str subt_resp_proxy = mg_str(IOT_HTTP_PROXY_RESP_TOPIC);
@@ -52,16 +52,16 @@ static void mqtt_ev_mqtt_open_cb(struct mg_connection *c, int ev, void *ev_data,
     sub_opts.topic = subt_resp_rpcd;
     sub_opts.qos = MQTT_QOS;
     mg_mqtt_sub(c, &sub_opts);
-    MG_INFO(("subscribed to %.*s", (int) subt_resp_rpcd.len, subt_resp_rpcd.ptr));
+    MG_INFO(("subscribed to %.*s", (int) subt_resp_rpcd.len, subt_resp_rpcd.buf));
 
     sub_opts.topic = subt_resp_proxy;
     mg_mqtt_sub(c, &sub_opts);
 
-    MG_INFO(("subscribed to %.*s", (int) subt_resp_proxy.len, subt_resp_proxy.ptr));
+    MG_INFO(("subscribed to %.*s", (int) subt_resp_proxy.len, subt_resp_proxy.buf));
 
 }
 
-static void mqtt_ev_mqtt_cmd_cb(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
+static void mqtt_ev_mqtt_cmd_cb(struct mg_connection *c, int ev, void *ev_data) {
 
     struct mg_mqtt_message *mm = (struct mg_mqtt_message *) ev_data;
     struct http_private *priv = (struct http_private*)c->mgr->userdata;
@@ -76,30 +76,30 @@ mg/iot-http/123
 device/+/rpc/response/iot-http/123
 */
 static struct mg_str connection_id(struct mg_str topic) {
-    struct mg_str sub_topic_prefix = mg_str(IOT_HTTP_TOPIC_PREFIX);
-    const char *p = mg_strstr(topic, sub_topic_prefix);
-    if (p == NULL) {
-        return mg_str("0");
-    }
 
-    struct mg_str topic_prefix = mg_str_n(p, topic.len - (p - topic.ptr));
+    // IOT_HTTP_TOPIC_PREFIX "iot-http/"
+    struct mg_str pattern = mg_str("#/"IOT_HTTP_TOPIC_PREFIX"*");
+    struct mg_str caps[3] = { mg_str(NULL), mg_str(NULL), mg_str(NULL) };
 
-    struct mg_str cid = mg_str_n(topic_prefix.ptr + sub_topic_prefix.len, topic_prefix.len - sub_topic_prefix.len);
-    MG_DEBUG(("topic: %.*s, topic: %.*s, cid: %.*s", (int)topic.len, topic.ptr, (int)topic_prefix.len, topic_prefix.ptr, (int)cid.len, cid.ptr));
+    mg_match(topic, pattern, caps);
+
+    struct mg_str cid = caps[1];
+    MG_DEBUG(("topic: %.*s, cid: %.*s", (int)topic.len, topic.buf, (int)cid.len, cid.buf));
     return cid;
+
 }
 
-static void mqtt_ev_mqtt_msg_cb(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
+static void mqtt_ev_mqtt_msg_cb(struct mg_connection *c, int ev, void *ev_data) {
 
     struct mg_mqtt_message *mm = (struct mg_mqtt_message *)ev_data;
-    MG_DEBUG(("received %.*s <- %.*s", (int) mm->data.len, mm->data.ptr,
-        (int) mm->topic.len, mm->topic.ptr));
+    MG_DEBUG(("received %.*s <- %.*s", (int) mm->data.len, mm->data.buf,
+        (int) mm->topic.len, mm->topic.buf));
         
     //从topic解析客户端connection id
     struct mg_str cid = connection_id(mm->topic);
 
     struct mg_connection *dst = NULL;
-    cJSON *root = cJSON_ParseWithLength(mm->data.ptr, mm->data.len);
+    cJSON *root = cJSON_ParseWithLength(mm->data.buf, mm->data.len);
     cJSON *method = cJSON_GetObjectItem(root, FIELD_METHOD);
 
     //查找客户端连接
@@ -112,7 +112,7 @@ static void mqtt_ev_mqtt_msg_cb(struct mg_connection *c, int ev, void *ev_data, 
     }
 
     if (!dst) {
-        MG_ERROR(("http dst connection [%lu] not found", cid));
+        MG_ERROR(("http dst connection [%.*s] not found", cid.len, cid.buf));
         goto end;
     }
 
@@ -142,46 +142,46 @@ static void mqtt_ev_mqtt_msg_cb(struct mg_connection *c, int ev, void *ev_data, 
 cb_end:
 
     //直接将结果发送给请求端
-    MG_DEBUG(("send %.*s -> connection: [%lu], websocket: [%d]", (int) mm->data.len, mm->data.ptr, cid, dst->is_websocket ? 1 : 0));
+    MG_DEBUG(("send %.*s -> connection: [%.*s], websocket: [%d]", (int) mm->data.len, mm->data.buf, cid.len, cid.buf, dst->is_websocket ? 1 : 0));
     if (dst->is_websocket) {
-        mg_ws_send(dst, mm->data.ptr, mm->data.len, WEBSOCKET_OP_TEXT);
+        mg_ws_send(dst, mm->data.buf, mm->data.len, WEBSOCKET_OP_TEXT);
     } else {
-        mg_http_reply(dst, 200, HTTP_DEFAULT_HEADER, "%.*s", (int) mm->data.len, mm->data.ptr);
+        mg_http_reply(dst, 200, HTTP_DEFAULT_HEADER, "%.*s", (int) mm->data.len, mm->data.buf);
     }
 
 end:
     cJSON_Delete(root);
 }
 
-static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
+static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
 
     switch (ev) {
         case MG_EV_OPEN:
-            mqtt_ev_open_cb(c, ev, ev_data, fn_data);
+            mqtt_ev_open_cb(c, ev, ev_data);
             break;
 
         case MG_EV_ERROR:
-            mqtt_ev_error_cb(c, ev, ev_data, fn_data);
+            mqtt_ev_error_cb(c, ev, ev_data);
             break;
 
         case MG_EV_MQTT_OPEN:
-            mqtt_ev_mqtt_open_cb(c, ev, ev_data, fn_data);
+            mqtt_ev_mqtt_open_cb(c, ev, ev_data);
             break;
 
         case MG_EV_MQTT_CMD:
-            mqtt_ev_mqtt_cmd_cb(c, ev, ev_data, fn_data);
+            mqtt_ev_mqtt_cmd_cb(c, ev, ev_data);
             break;
 
         case MG_EV_MQTT_MSG:
-            mqtt_ev_mqtt_msg_cb(c, ev, ev_data, fn_data);
+            mqtt_ev_mqtt_msg_cb(c, ev, ev_data);
             break;
 
         case MG_EV_POLL:
-            mqtt_ev_poll_cb(c, ev, ev_data, fn_data);
+            mqtt_ev_poll_cb(c, ev, ev_data);
             break;
 
         case MG_EV_CLOSE:
-            mqtt_ev_close_cb(c, ev, ev_data, fn_data);
+            mqtt_ev_close_cb(c, ev, ev_data);
             break;
     }
 }

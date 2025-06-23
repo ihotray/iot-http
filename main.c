@@ -26,7 +26,7 @@ static void usage(const char *prog, struct http_option *default_opts) {
             "  -n 404page  - 404 page path, default: NULL\n"
             "  -v LEVEL    - debug level, from 0 to 4, default: %d\n",
             MG_VERSION, prog, opts->http_listening_address, opts->https_listening_address,
-                        opts->http_mode, opts->https_cert, opts->https_certkey, opts->http_timeout, opts->http_serve_dir, opts->http_plugin_dir, opts->http_upload_dir,
+                        opts->http_mode, opts->https_cert, opts->https_key, opts->http_timeout, opts->http_serve_dir, opts->http_plugin_dir, opts->http_upload_dir,
                         opts->mqtt_serve_address, opts->mqtt_keepalive, "prod", opts->debug_level);
 
     exit(EXIT_FAILURE);
@@ -47,7 +47,7 @@ static void parse_args(int argc, char *argv[], struct http_option *opts) {
         } else if (strcmp(argv[i], "-c") == 0) {
             opts->https_cert = argv[++i];
         } else if (strcmp(argv[i], "-k") == 0) {
-            opts->https_certkey = argv[++i];
+            opts->https_key = argv[++i];
         } else if (strcmp(argv[i], "-t") == 0) {
             opts->http_timeout = atoi(argv[++i]);
         } else if (strcmp(argv[i], "-d") == 0) {
@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
         .https_listening_address = "https://0.0.0.0:8443",
         .https_ca = NULL,
         .https_cert = CERT,
-        .https_certkey = KEY,
+        .https_key = KEY,
         .http_serve_dir = "/www/iot/web_root",
         .http_plugin_dir = "/usr/share/iot/rpc/plugin/",
         .http_upload_dir = "/tmp/upload",

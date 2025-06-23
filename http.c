@@ -11,7 +11,7 @@ static void signal_handler(int signo) {
     s_signo = signo;
 }
 
-static void http_ev_accept_cb(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
+static void http_ev_accept_cb(struct mg_connection *c, int ev, void *ev_data) {
 
     if (c->fn_data) {
         MG_ERROR(("bad logic error"));
@@ -29,7 +29,7 @@ static void http_ev_accept_cb(struct mg_connection *c, int ev, void *ev_data, vo
 
 }
 
-static void http_ev_read_cb(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
+static void http_ev_read_cb(struct mg_connection *c, int ev, void *ev_data) {
 
     if (!c->fn_data)
         return;
@@ -39,7 +39,7 @@ static void http_ev_read_cb(struct mg_connection *c, int ev, void *ev_data, void
 
 }
 
-static void http_ev_poll_cb(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
+static void http_ev_poll_cb(struct mg_connection *c, int ev, void *ev_data) {
 
     if (!c->fn_data)
         return;
@@ -55,7 +55,7 @@ static void http_ev_poll_cb(struct mg_connection *c, int ev, void *ev_data, void
     }
 }
 
-static void http_ev_close_cb(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
+static void http_ev_close_cb(struct mg_connection *c, int ev, void *ev_data) {
 
     struct http_private *priv = (struct http_private *)c->mgr->userdata;
 
@@ -78,23 +78,21 @@ static void http_ev_close_cb(struct mg_connection *c, int ev, void *ev_data, voi
 
     struct http_session *s = (struct http_session*)c->fn_data;
 
-    if (s->fd) {
+    if (s->fd)
         priv->fs->cl(s->fd);
-        free((void*)s->filepath.ptr);
-    }
 
-    if (s->ws_uri.ptr)
-        free((void*)s->ws_uri.ptr);
+    if (s->filepath.buf)
+        free((void*)s->filepath.buf);
 
     free(s);
 
 }
 
-static void http_alive_handler(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
+static void http_alive_handler(struct mg_connection *c, int ev, void *ev_data) {
     mg_http_reply(c, 200, HTTP_DEFAULT_HEADER, "true");
 }
 
-static void http_websocket_handler(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
+static void http_websocket_handler(struct mg_connection *c, int ev, void *ev_data) {
 
     struct mg_http_message *hm = (struct mg_http_message *) ev_data;
     struct rpc_call_context ctx = {
@@ -105,21 +103,12 @@ static void http_websocket_handler(struct mg_connection *c, int ev, void *ev_dat
         return;
     }
 
-    //save uri when upgrade to websocket
-    if (!c->fn_data)
-        return;
-    struct http_session *s = (struct http_session*)c->fn_data;
-    if (s->ws_uri.ptr)
-        free((void*)s->ws_uri.ptr);
-
-    s->ws_uri = mg_strdup(hm->uri);
-
     MG_INFO(("upgrade connection %lu to websocket", c->id));
     mg_ws_upgrade(c, hm, NULL);
 
 }
 
-static void http_serve_dir_handler(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
+static void http_serve_dir_handler(struct mg_connection *c, int ev, void *ev_data) {
 
     struct http_private *priv = (struct http_private*)c->mgr->userdata;
     struct mg_http_serve_opts opts = { 0 };
@@ -132,19 +121,19 @@ static void http_serve_dir_handler(struct mg_connection *c, int ev, void *ev_dat
 }
 
 
-static void http_api_handler(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
+static void http_api_handler(struct mg_connection *c, int ev, void *ev_data) {
 
     struct mg_http_message *hm = (struct mg_http_message *) ev_data;
-    struct mg_str devid = MG_NULL_STR;
-    struct mg_str pub_topic = MG_NULL_STR;
+    struct mg_str devid = mg_str(NULL);
+    struct mg_str pub_topic = mg_str(NULL);
     struct http_private *priv = (struct http_private *)c->mgr->userdata;
 
-    cJSON *root = cJSON_ParseWithLength(hm->body.ptr, hm->body.len);
+    cJSON *root = cJSON_ParseWithLength(hm->body.buf, hm->body.len);
 
     //parse method name
     cJSON *method = cJSON_GetObjectItem(root, FIELD_METHOD);
 
-    MG_DEBUG(("received %.*s <- %.*s", (int)hm->body.len, hm->body.ptr, (int)hm->uri.len, hm->uri.ptr));
+    MG_DEBUG(("received %.*s <- %.*s", (int)hm->body.len, hm->body.buf, (int)hm->uri.len, hm->uri.buf));
 
     if ( !cJSON_IsString(method) ) {
         MG_ERROR(("no method found"));
@@ -159,20 +148,21 @@ static void http_api_handler(struct mg_connection *c, int ev, void *ev_data, voi
         goto end;
     }
 
-    if ( mg_http_match_uri(hm, "/device/#/api") ) {
+    struct mg_str caps[2] = { mg_str(NULL), mg_str(NULL) };
+    if ( mg_match(hm->uri, mg_str("/device/#/api"), caps) ) {
         MG_DEBUG(("match /device/#/api"));
-        devid = mg_str_n(hm->uri.ptr + 8, hm->uri.len - 8 - 4);//delete prefix[/device/], postfix[/api]
+        devid = caps[0]; //devid is the first capture group
     }
 
     //通过topic传递客户端connection id，后面用
     struct mg_str mg_method_prefix = mg_str(MQTT_METHOD_PREFIX);
     struct mg_str mg_method = mg_str(cJSON_GetStringValue(method));
-    if (mg_method.len > mg_method_prefix.len && !mg_ncasecmp(mg_method.ptr, mg_method_prefix.ptr, mg_method_prefix.len)) {
+    if (mg_method.len > mg_method_prefix.len && !mg_strcasecmp(mg_str_n(mg_method.buf, mg_method_prefix.len), mg_method_prefix)) {
         //to mqtt server
         pub_topic = mg_str(mg_mprintf(IOT_HTTP_MQTT_TOPIC, c->id));
     } else if (devid.len > 0) {
         //to agent
-        pub_topic = mg_str(mg_mprintf(IOT_HTTP_PROXY_REQ_TOPIC, (int)devid.len, devid.ptr, c->id));
+        pub_topic = mg_str(mg_mprintf(IOT_HTTP_PROXY_REQ_TOPIC, (int)devid.len, devid.buf, c->id));
     } else {
         //to rpcd
         pub_topic = mg_str(mg_mprintf(IOT_HTTP_RPCD_TOPIC, c->id));
@@ -193,7 +183,7 @@ static void http_api_handler(struct mg_connection *c, int ev, void *ev_data, voi
 
     char *printed = cJSON_Print(ctx.root); // data maybe modified by pre hooks
 
-    MG_DEBUG(("pub %s -> %.*s", printed, (int) pub_topic.len, pub_topic.ptr));
+    MG_DEBUG(("pub %s -> %.*s", printed, (int) pub_topic.len, pub_topic.buf));
 
     struct mg_mqtt_opts pub_opts;
     memset(&pub_opts, 0, sizeof(pub_opts));
@@ -207,44 +197,44 @@ static void http_api_handler(struct mg_connection *c, int ev, void *ev_data, voi
 end:
     cJSON_Delete(root);
 
-    if (pub_topic.ptr)
-        free((void*)pub_topic.ptr);
+    if (pub_topic.buf)
+        free((void*)pub_topic.buf);
 
 }
 
-static void http_ev_http_msg_cb(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
+static void http_ev_http_msg_cb(struct mg_connection *c, int ev, void *ev_data) {
 
     struct mg_http_message *hm = (struct mg_http_message *) ev_data;
 
-    MG_DEBUG(("%.*s %.*s", (int) hm->method.len, hm->method.ptr,
-        (int) hm->uri.len, hm->uri.ptr));
+    MG_DEBUG(("%.*s %.*s", (int) hm->method.len, hm->method.buf,
+        (int) hm->uri.len, hm->uri.buf));
 
     //alive request
-    if ( mg_http_match_uri(hm, "/alive") ) {
-        http_alive_handler(c, ev, ev_data, fn_data);
+    if ( mg_strcasecmp(hm->uri, mg_str("/alive")) == 0 ) {
+        http_alive_handler(c, ev, ev_data);
         return;
     }
 
     //websocket
-    if ( mg_http_match_uri(hm, "/websocket") || mg_http_match_uri(hm, "/device/#/websocket") ) {
-        http_websocket_handler(c, ev, ev_data, fn_data);
+    if ( mg_strcasecmp(hm->uri, mg_str("/websocket")) == 0 ) {
+        http_websocket_handler(c, ev, ev_data);
         return;
     }
 
     //handled by plugin
-    if ( http_plugin_handler(c, ev, ev_data, fn_data) ) {
+    if ( http_plugin_handler(c, ev, ev_data) ) {
         return;
     }
 
     //not post, as serve files
-    if ( mg_ncasecmp(hm->method.ptr, "POST", hm->method.len) ) {
-        http_serve_dir_handler(c, ev, ev_data, fn_data);
+    if ( mg_strcasecmp(hm->method, mg_str("POST")) ) {
+        http_serve_dir_handler(c, ev, ev_data);
         return;
     }
 
     //post /api
-    if (mg_http_match_uri(hm, "/api") || mg_http_match_uri(hm, "/device/#/api")) {
-        http_api_handler(c, ev, ev_data, fn_data);
+    if ( mg_strcasecmp(hm->uri, mg_str("/api")) == 0 || mg_match(hm->uri, mg_str("/device/#/api"), NULL) ) {
+        http_api_handler(c, ev, ev_data);
         return;
     }
 
@@ -253,17 +243,50 @@ static void http_ev_http_msg_cb(struct mg_connection *c, int ev, void *ev_data, 
 
 }
 
-static void http_ev_http_chunk_cb(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
+static void http_ev_http_upload_cb(struct mg_connection *c, int ev, void *ev_data) {
 
-    struct mg_http_message *hm = (struct mg_http_message *) ev_data;
     struct http_private *priv = (struct http_private *)c->mgr->userdata;
 
-    if (!c->fn_data) {
+    if ( !c->fn_data ) {
         MG_ERROR(("no fn_data found"));
         return;
     }
 
-    if (!mg_http_match_uri(hm, "/upload")) {
+    struct http_session *s = (struct http_session*)c->fn_data;
+
+    if (s->is_upload && c->recv.len > 0) {
+        s->filesize_recv += c->recv.len;
+        if ( s->fd ) {
+            priv->fs->wr(s->fd, c->recv.buf, c->recv.len);
+            mg_sha256_update(&s->sha256_ctx, (const unsigned char *)c->recv.buf, c->recv.len);
+        }
+        c->recv.len = 0;
+    }
+    if (s->is_upload && s->filesize_recv >= s->filesize_expt) {
+        unsigned char sha256_digest[32] = {0};
+        char sha256sum[sizeof(sha256_digest)*2+1] = {0};
+        if ( s->fd && s->filesize_recv) {
+            mg_sha256_final(sha256_digest, &s->sha256_ctx);
+            for (int i=0; i<sizeof(sha256_digest); i++) {
+                mg_snprintf(&sha256sum[i*2], 3, "%02x", sha256_digest[i]);
+            }
+        }
+        mg_http_reply(c, 200, HTTP_DEFAULT_HEADER, "{\"code\": 0, \"data\": {\"filepath\": \"%.*s\", \"sha256sum\": \"%s\"}}\n", (int)s->filepath.len, s->filepath.buf, sha256sum);
+        c->is_draining = 1;
+    }
+}
+
+static void http_ev_http_hdrs_cb(struct mg_connection *c, int ev, void *ev_data) {
+
+    struct mg_http_message *hm = (struct mg_http_message *) ev_data;
+    struct http_private *priv = (struct http_private *)c->mgr->userdata;
+
+    if ( !c->fn_data ) {
+        MG_ERROR(("no fn_data found"));
+        return;
+    }
+
+    if ( mg_strcasecmp(hm->uri, mg_str("/upload")) ) { //not upload request
         return;
     }
 
@@ -277,12 +300,14 @@ static void http_ev_http_chunk_cb(struct mg_connection *c, int ev, void *ev_data
         return;
     }
 
-    MG_DEBUG(("got chunk length %lu", (unsigned long) hm->chunk.len));
-    MG_DEBUG(("query string: [%.*s]", (int) hm->query.len, hm->query.ptr));
-
     struct http_session *s = (struct http_session*)c->fn_data;
 
-    if ( !s->fd && hm->chunk.len ) { //first data， open file
+    s->is_upload = true;  // Mark this session as an upload session
+    s->filesize_expt = hm->body.len;  // Store number of bytes we expect
+    mg_iobuf_del(&c->recv, 0, hm->head.len);  // Delete HTTP headers
+    c->pfn = NULL;  // Silence HTTP protocol handler, we'll use MG_EV_READ
+
+    if ( s->filesize_expt && !s->fd ) {
         //创建目录
         priv->fs->mkd(priv->cfg.opts->http_upload_dir);
 
@@ -290,78 +315,45 @@ static void http_ev_http_chunk_cb(struct mg_connection *c, int ev, void *ev_data
         if (filename.len == 0) {
             filename = mg_str("upload.dat");
         }
-        char *filepath = mg_mprintf("%s/%.*s", priv->cfg.opts->http_upload_dir, (int)filename.len, filename.ptr);
+        char *filepath = mg_mprintf("%s/%.*s", priv->cfg.opts->http_upload_dir, (int)filename.len, filename.buf);
         s->filepath = mg_str(filepath);
         //删除已有文件
         priv->fs->rm(filepath);
         //创建新文件
         s->fd = priv->fs->op(filepath, MG_FS_WRITE);
+        if (!s->fd) {
+            MG_ERROR(("cannot open file %s for writing", filepath));
+            mg_http_reply(c, 500, HTTP_DEFAULT_HEADER, "{\"code\": -10002}\n");
+            c->is_draining = 1;
+            return;
+        }
         mg_sha256_init(&s->sha256_ctx);
     }
 
-    //write data
-    if (s->fd && hm->chunk.len) {
-        priv->fs->wr(s->fd, hm->chunk.ptr, hm->chunk.len);
-        mg_sha256_update(&s->sha256_ctx, (const unsigned char *)hm->chunk.ptr, hm->chunk.len);
-        s->filesize += hm->chunk.len;
-    }
-
-    mg_http_delete_chunk(c, hm);
-
-    //last data
-    if (hm->chunk.len == 0) {
-
-        MG_DEBUG(("last chunk received, sending resp"));
-        unsigned char sha256_digest[32] = {0};
-        char sha256sum[sizeof(sha256_digest)*2+1] = {0};
-        if (s->filesize) {
-            mg_sha256_final(sha256_digest, &s->sha256_ctx);
-            for (int i=0; i<sizeof(sha256_digest); i++) {
-                mg_snprintf(&sha256sum[i*2], 3, "%02x", sha256_digest[i]);
-            }
-        }
-        if (s->fd) {
-            priv->fs->cl(s->fd);
-            s->fd = NULL;
-            s->filesize = 0;
-            mg_http_reply(c, 200, HTTP_DEFAULT_HEADER, "{\"code\": 0, \"data\": {\"filepath\": \"%.*s\", \"sha256sum\": \"%s\"}}\n", (int)s->filepath.len, s->filepath.ptr, sha256sum);
-            free((void*)s->filepath.ptr);
-            s->filepath.ptr = NULL;
-            s->filepath.len = 0;
-        }
-
-    }
+    http_ev_http_upload_cb(c, ev, ev_data);
 }
 
-static void http_ev_ws_cb(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
+
+static void http_ev_ws_cb(struct mg_connection *c, int ev, void *ev_data) {
 
     struct mg_ws_message *wm = (struct mg_ws_message *) ev_data;
-    struct mg_str devid = MG_NULL_STR;
-    struct mg_str pub_topic = MG_NULL_STR;
+    struct mg_str devid = mg_str(NULL);
+    struct mg_str data = mg_str(NULL);
+    struct mg_str pub_topic = mg_str(NULL);
     struct http_private *priv = (struct http_private *)c->mgr->userdata;
 
-    if (!c->fn_data)
-        return;
+    struct mg_str caps[3] = { mg_str(NULL), mg_str(NULL), mg_str(NULL) };
 
-    struct http_session *s = (struct http_session*)c->fn_data;
-
-    if ( mg_match(s->ws_uri, mg_str("/device/#/websocket"), NULL) ) {
-        MG_INFO(("MATCH /device/#/websocket"));
-        devid = mg_str_n(s->ws_uri.ptr + 8, s->ws_uri.len - 8 - 10);//delete prefix[/device/], postfix[/websocket]
-    }
-
-    //parse json from body
-    MG_INFO(("received %.*s <- %.*s over websocket", (int)wm->data.len, wm->data.ptr, (int)s->ws_uri.len, s->ws_uri.ptr));
-
-    cJSON *root = cJSON_ParseWithLength(wm->data.ptr, wm->data.len);
-
-    //parse method name
-    cJSON *method = cJSON_GetObjectItem(root, FIELD_METHOD);
-
-    if ( !cJSON_IsString(method) ) {
-        MG_ERROR(("no method found"));
+    // [devid]data
+    if ( !mg_match(wm->data, mg_str("[#]#"), caps) /*|| caps[0].len == 0 || caps[1].len == 0*/ ) {
+        MG_ERROR(("websocket msg: %.*s format([devid]data) is wrong", wm->data.len, wm->data.buf));
         goto end;
     }
+    devid = caps[0];
+    data = caps[1];
+
+    //parse json from body
+    MG_DEBUG(("received %.*s over websocket", (int)wm->data.len, wm->data.buf));
 
     //pub to iot-rpcd
     if (!priv->mqtt_conn) {
@@ -370,86 +362,84 @@ static void http_ev_ws_cb(struct mg_connection *c, int ev, void *ev_data, void *
     }
 
     //通过topic传递客户端connection id，后面用
-    struct mg_str mg_method_prefix = mg_str(MQTT_METHOD_PREFIX);
-    struct mg_str mg_method = mg_str(cJSON_GetStringValue(method));
-    if (mg_method.len > mg_method_prefix.len && !mg_ncasecmp(mg_method.ptr, mg_method_prefix.ptr, mg_method_prefix.len)) {
-        //to mqtt server
+    if ( !mg_strcasecmp(devid, mg_str("$mqtt")) ) {
+        // to mqtt server
         pub_topic = mg_str(mg_mprintf(IOT_HTTP_MQTT_TOPIC, c->id));
-    } else if (devid.len > 0) {
-        //to agent
-        pub_topic = mg_str(mg_mprintf(IOT_HTTP_PROXY_REQ_TOPIC, (int)devid.len, devid.ptr, c->id));
-    } else {
-        //to rpcd
+    } else if ( !mg_strcasecmp(devid, mg_str("$rpcd")) ) {
+        // to rpcd
         pub_topic = mg_str(mg_mprintf(IOT_HTTP_RPCD_TOPIC, c->id));
+    } else {
+        // to agent
+        pub_topic = mg_str(mg_mprintf(IOT_HTTP_PROXY_REQ_TOPIC, (int)devid.len, devid.buf, c->id));
     }
 
-    MG_INFO(("pub %.*s -> %.*s", (int)wm->data.len, wm->data.ptr, (int) pub_topic.len, pub_topic.ptr));
+    MG_DEBUG(("pub %.*s -> %.*s", (int)data.len, data.buf, (int)pub_topic.len, pub_topic.buf));
 
     struct mg_mqtt_opts pub_opts;
     memset(&pub_opts, 0, sizeof(pub_opts));
     pub_opts.topic = pub_topic;
-    pub_opts.message = wm->data;
+    pub_opts.message = data;
     pub_opts.qos = MQTT_QOS, pub_opts.retain = false;
     mg_mqtt_pub(priv->mqtt_conn, &pub_opts);
 
 end:
-    cJSON_Delete(root);
-    if (pub_topic.ptr)
-        free((void*)pub_topic.ptr);
+    if (pub_topic.buf)
+        free((void*)pub_topic.buf);
 }
 
 
 // Event handler for the listening connection.
-static void http_cb(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
+static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
     switch (ev) {
         case MG_EV_ACCEPT:
-            http_ev_accept_cb(c, ev, ev_data, fn_data);
+            http_ev_accept_cb(c, ev, ev_data);
             break;
 
         case MG_EV_READ:
-            http_ev_read_cb(c, ev, ev_data, fn_data);
+            http_ev_read_cb(c, ev, ev_data);
+            http_ev_http_upload_cb(c, ev, ev_data);
             break;
 
         case MG_EV_POLL:
-            http_ev_poll_cb(c, ev, ev_data, fn_data);
+            http_ev_poll_cb(c, ev, ev_data);
             break;
 
         case MG_EV_CLOSE:
-            http_ev_close_cb(c, ev, ev_data, fn_data);
+            http_ev_close_cb(c, ev, ev_data);
             break;
 
         case MG_EV_HTTP_MSG:
-            http_ev_http_msg_cb(c, ev, ev_data, fn_data);
+            http_ev_http_msg_cb(c, ev, ev_data);
             break;
 
-        case MG_EV_HTTP_CHUNK:
-            http_ev_http_chunk_cb(c, ev, ev_data, fn_data);
+        case MG_EV_HTTP_HDRS:
+            http_ev_http_hdrs_cb(c, ev, ev_data);
             break;
 
         case MG_EV_WS_MSG: //websocket msg
-            http_ev_ws_cb(c, ev, ev_data, fn_data);
+            http_ev_ws_cb(c, ev, ev_data);
             break;
 
     }
 }
 
 
-static void https_accept_cb(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
+static void https_accept_cb(struct mg_connection *c, int ev, void *ev_data) {
 
     struct http_private *priv = (struct http_private*)c->mgr->userdata;
     struct mg_tls_opts opts = { 0 };
-    opts.cert = priv->cfg.opts->https_cert;
-    opts.certkey = priv->cfg.opts->https_certkey;
+    opts.cert = mg_str(priv->cfg.opts->https_cert);
+    opts.key = mg_str(priv->cfg.opts->https_key);
     mg_tls_init(c, &opts);
 
 }
 
-static void https_cb(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
+static void https_cb(struct mg_connection *c, int ev, void *ev_data) {
 
     if (ev == MG_EV_ACCEPT)
-        https_accept_cb(c, ev, ev_data, fn_data);
+        https_accept_cb(c, ev, ev_data);
 
-    http_cb(c, ev, ev_data, fn_data);
+    http_cb(c, ev, ev_data);
 }
 
 void timer_http_fn(void *arg) {

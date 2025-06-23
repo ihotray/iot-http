@@ -10,7 +10,7 @@ struct http_option {
     const char *https_listening_address; //https 监听端口
     const char *https_ca;                //https ca
     const char *https_cert;              //https cert
-    const char *https_certkey;           //https certkey
+    const char *https_key;              //https certkey
     const char *http_serve_dir;          //http serve dir, static resource
     const char *http_plugin_dir;         //http plugin dir
     const char *http_upload_dir;         //upload file store in
@@ -36,9 +36,10 @@ struct http_session {
     uint64_t active;
     mg_sha256_ctx sha256_ctx;
     struct mg_str filepath;
-    struct mg_str ws_uri;
     void *fd;
-    int filesize;
+    bool is_upload;
+    size_t filesize_expt; //预期上传文件大小
+    size_t filesize_recv; //已上传文件大小
 };
 
 
