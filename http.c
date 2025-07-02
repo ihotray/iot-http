@@ -88,6 +88,8 @@ static void http_ev_close_cb(struct mg_connection *c, int ev, void *ev_data, voi
 
     free(s);
 
+    c->fn_data = NULL;
+
 }
 
 static void http_alive_handler(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
