@@ -59,18 +59,12 @@ static void http_ev_close_cb(struct mg_connection *c, int ev, void *ev_data) {
 
     struct http_private *priv = (struct http_private *)c->mgr->userdata;
 
-    if ( c == priv->http_1st_listener ) {
+    if ( c == priv->http_listener ) {
         MG_INFO(("http listener %lu closed", c->id));
-        priv->http_1st_listener = NULL;
-    } else if ( c == priv->http_2nd_listener ) {
-        MG_INFO(("http listener %lu closed", c->id));
-        priv->http_2nd_listener = NULL;
-    } else if ( c == priv->https_1st_listener ) {
+        priv->http_listener = NULL;
+    } else if ( c == priv->https_listener ) {
         MG_INFO(("https listener %lu closed", c->id));
-        priv->https_1st_listener = NULL;
-    } else if ( c == priv->https_2nd_listener ) {
-        MG_INFO(("https listener %lu closed", c->id));
-        priv->https_2nd_listener = NULL;
+        priv->https_listener = NULL;
     }
 
     if (!c->fn_data)
@@ -449,49 +443,25 @@ void timer_http_fn(void *arg) {
     struct http_private *priv = (struct http_private *)mgr->userdata;
 
     if (priv->cfg.opts->http_mode != 2) { //http
-        if ( !priv->http_1st_listener ) {
+        if ( !priv->http_listener ) {
             struct mg_connection *c = mg_http_listen(&priv->mgr, priv->cfg.opts->http_listening_address, http_cb, NULL);
             if ( !c ) {
                 MG_ERROR(("Cannot listen on %s. Use http://ADDR:PORT or :PORT", priv->cfg.opts->http_listening_address));
             } else {
                 MG_INFO(("listen on %s", priv->cfg.opts->http_listening_address));
-                priv->http_1st_listener = c;
-            }
-        }
-        if ( priv->http_1st_listener && priv->http_1st_listener->loc.is_ip6 && !priv->http_2nd_listener) { //已监听ipv6，还需要监听ipv4
-            unsigned short port = mg_url_port(priv->cfg.opts->http_listening_address);
-            const char *address = mg_mprintf("http://0.0.0.0:%d", port);
-            struct mg_connection *c = mg_http_listen(&priv->mgr, address, http_cb, NULL);
-            free((void*)address);
-            if ( !c ) {
-                MG_ERROR(("Cannot listen on %s. Use http://ADDR:PORT or :PORT", address));
-            } else {
-                MG_INFO(("listen on %s", address));
-                priv->http_2nd_listener = c;
+                priv->http_listener = c;
             }
         }
     }
 
     if (priv->cfg.opts->http_mode > 1) { //https
-        if ( !priv->https_1st_listener ) {
+        if ( !priv->https_listener ) {
             struct mg_connection *c = mg_http_listen(&priv->mgr, priv->cfg.opts->https_listening_address, https_cb, NULL);
             if ( !c ) {
                 MG_ERROR(("Cannot listen on %s. Use https://ADDR:PORT or :PORT", priv->cfg.opts->https_listening_address));
             } else {
                 MG_INFO(("listen on %s", priv->cfg.opts->https_listening_address));
-                priv->https_1st_listener = c;
-            }
-        }
-        if ( priv->https_1st_listener && priv->https_1st_listener->loc.is_ip6 && !priv->https_2nd_listener ) { //已监听ipv6，还需要监听ipv4
-            unsigned short port = mg_url_port(priv->cfg.opts->https_listening_address);
-            const char *address = mg_mprintf("https://0.0.0.0:%d", port);
-            struct mg_connection *c = mg_http_listen(&priv->mgr, address, https_cb, NULL);
-            free((void*)address);
-            if ( !c ) {
-                MG_ERROR(("Cannot listen on %s. Use https://ADDR:PORT or :PORT", address));
-            } else {
-                MG_INFO(("listen on %s", address));
-                priv->https_2nd_listener = c;
+                priv->https_listener = c;
             }
         }
     }

@@ -63,10 +63,8 @@ struct http_private {
     struct session *sessions;
     struct challenge *challenges;
 
-    struct mg_connection *http_1st_listener;
-    struct mg_connection *http_2nd_listener;
-    struct mg_connection *https_1st_listener;
-    struct mg_connection *https_2nd_listener;
+    struct mg_connection *http_listener;
+    struct mg_connection *https_listener;
 
 };
 
