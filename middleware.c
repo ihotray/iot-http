@@ -56,11 +56,25 @@ true: 拦截
 bool cb_pre_hooks(struct rpc_call_context *ctx) {
     bool no_auth = false;
     bool is_remote = true;
-    char ip[16] = {0};
-    mg_snprintf(ip, sizeof(ip)-1, "%M", mg_print_ip, &ctx->c->rem);
+    struct mg_addr *rem = &ctx->c->rem;
 
-    if ( !mg_casecmp(ip, "127.0.0.1") ) { //本地调用
-        is_remote = false;
+    if (rem->is_ip6) {
+        uint16_t *p = (uint16_t *) rem->ip;
+        // IPv6 loopback: ::1 = [0:0:0:0:0:0:0:1]
+        if (p[0] == 0 && p[1] == 0 && p[2] == 0 && p[3] == 0 &&
+            p[4] == 0 && p[5] == 0 && p[6] == 0 && mg_ntohs(p[7]) == 1) {
+            is_remote = false;
+        }
+        // IPv4-mapped IPv6 loopback: ::ffff:127.0.0.0/8 = [0:0:0:0:0:ffff:7fxx:xxxx]
+        if (p[0] == 0 && p[1] == 0 && p[2] == 0 && p[3] == 0 &&
+            p[4] == 0 && p[5] == 0xffff && rem->ip[12] == 127) {
+            is_remote = false;
+        }
+    } else {
+        // IPv4 loopback: 127.0.0.0/8
+        if (rem->ip[0] == 127) {
+            is_remote = false;
+        }
     }
 
     struct http_private *priv = (struct http_private *)ctx->c->mgr->userdata;
