@@ -144,14 +144,14 @@ static void http_api_handler(struct mg_connection *c, int ev, void *ev_data, voi
 
     if ( !cJSON_IsString(method) ) {
         MG_ERROR(("no method found"));
-        mg_http_reply(c, 200, HTTP_DEFAULT_HEADER, "{\"code\": -10001}\n");
+        mg_http_reply(c, 200, HTTP_JSON_HEADER, "{\"code\": -10001}\n");
         goto end;
     }
 
     //pub to iot-rpcd
     if (!priv->mqtt_conn) {
         MG_ERROR(("mqtt connection lost"));
-        mg_http_reply(c, 200, HTTP_DEFAULT_HEADER, "{\"code\": -10002}\n");
+        mg_http_reply(c, 200, HTTP_JSON_HEADER, "{\"code\": -10002}\n");
         goto end;
     }
 
@@ -269,7 +269,7 @@ static void http_ev_http_chunk_cb(struct mg_connection *c, int ev, void *ev_data
     };
 
     if ( cb_pre_hooks(&ctx) ) { //登录授权检查
-        mg_http_reply(c, 401, HTTP_DEFAULT_HEADER, "{\"code\": -10000}\n");
+        mg_http_reply(c, 401, HTTP_JSON_HEADER, "{\"code\": -10000}\n");
         return;
     }
 
@@ -320,7 +320,7 @@ static void http_ev_http_chunk_cb(struct mg_connection *c, int ev, void *ev_data
             priv->fs->cl(s->fd);
             s->fd = NULL;
             s->filesize = 0;
-            mg_http_reply(c, 200, HTTP_DEFAULT_HEADER, "{\"code\": 0, \"data\": {\"filepath\": \"%.*s\", \"sha256sum\": \"%s\"}}\n", (int)s->filepath.len, s->filepath.ptr, sha256sum);
+            mg_http_reply(c, 200, HTTP_JSON_HEADER, "{\"code\": 0, \"data\": {\"filepath\": \"%.*s\", \"sha256sum\": \"%s\"}}\n", (int)s->filepath.len, s->filepath.ptr, sha256sum);
             free((void*)s->filepath.ptr);
             s->filepath.ptr = NULL;
             s->filepath.len = 0;

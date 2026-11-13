@@ -87,7 +87,7 @@ static void call_handler(struct mg_str plugin, struct mg_connection *c, int ev, 
 
     if (!priv->mqtt_conn) {
         MG_ERROR(("mqtt connection lost"));
-        mg_http_reply(c, 200, HTTP_DEFAULT_HEADER, "{\"code\": -10002}\n");
+        mg_http_reply(c, 200, HTTP_JSON_HEADER, "{\"code\": -10002}\n");
         goto end;
     }
 

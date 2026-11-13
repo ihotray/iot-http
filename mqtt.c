@@ -122,7 +122,7 @@ static void mqtt_ev_mqtt_msg_cb(struct mg_connection *c, int ev, void *ev_data, 
         cJSON *header = cJSON_GetObjectItem(root, "header");
         cJSON *body = cJSON_GetObjectItem(root, "body");
 
-        mg_http_reply(dst, cJSON_IsNumber(code) ? cJSON_GetNumberValue(code) : 200, cJSON_IsString(header) ? cJSON_GetStringValue(header) : HTTP_DEFAULT_HEADER, cJSON_IsString(body) ? cJSON_GetStringValue(body) : "");
+        mg_http_reply(dst, cJSON_IsNumber(code) ? cJSON_GetNumberValue(code) : 200, cJSON_IsString(header) ? cJSON_GetStringValue(header) : HTTP_JSON_HEADER, cJSON_IsString(body) ? cJSON_GetStringValue(body) : "");
         goto end;
     }
 
@@ -146,7 +146,7 @@ cb_end:
     if (dst->is_websocket) {
         mg_ws_send(dst, mm->data.ptr, mm->data.len, WEBSOCKET_OP_TEXT);
     } else {
-        mg_http_reply(dst, 200, HTTP_DEFAULT_HEADER, "%.*s", (int) mm->data.len, mm->data.ptr);
+        mg_http_reply(dst, 200, root ? HTTP_JSON_HEADER : HTTP_DEFAULT_HEADER, "%.*s", (int) mm->data.len, mm->data.ptr);
     }
 
 end:
